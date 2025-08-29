@@ -1,0 +1,21 @@
+services:
+  api:
+    build: .
+    ports:
+      - "4000:4000"
+    env_file:
+      - .env
+    depends_on:
+      - db
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: sgmi
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+volumes:
+  dbdata:

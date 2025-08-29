@@ -1,0 +1,132 @@
+// SGMI Backend - Prisma Schema
+// Sistema de Gestão de Produção Industrial
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(uuid())
+  name          String
+  email         String   @unique
+  passwordHash  String   @map("password_hash")
+  role          UserRole
+  createdAt     DateTime @default(now()) @map("created_at")
+  
+  refreshTokens RefreshToken[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  token     String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
+
+model Product {
+  id        String      @id @default(uuid())
+  name      String      @unique
+  unit      ProductUnit
+  active    Boolean     @default(true)
+  createdAt DateTime    @default(now()) @map("created_at")
+  
+  productionPlans   ProductionPlan[]
+  productionEntries ProductionEntry[]
+
+  @@map("products")
+}
+
+model ProductionPlan {
+  id              String                 @id @default(uuid())
+  productId       String                 @map("product_id")
+  plannedQuantity Decimal                @map("planned_quantity") @db.Decimal(14, 3)
+  shift           Shift
+  plannedDate     DateTime               @map("planned_date") @db.Date
+  status          ProductionPlanStatus   @default(PENDING)
+  createdAt       DateTime               @default(now()) @map("created_at")
+  updatedAt       DateTime               @updatedAt @map("updated_at")
+  
+  product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+  batches Batch[]
+
+  @@index([plannedDate, shift])
+  @@index([productId])
+  @@index([status])
+  @@map("production_plans")
+}
+
+model Batch {
+  id                   String      @id @default(uuid())
+  productionPlanId     String      @map("production_plan_id")
+  batchNumber          Int         @map("batch_number")
+  status               BatchStatus @default(PLANNED)
+  startTime            DateTime?   @map("start_time")
+  endTime              DateTime?   @map("end_time")
+  pauseDurationMinutes Int         @default(0) @map("pause_duration_minutes")
+  estimatedKg          Decimal     @map("estimated_kg") @db.Decimal(14, 3)
+  actualKg             Decimal?    @map("actual_kg") @db.Decimal(14, 3)
+  createdAt            DateTime    @default(now()) @map("created_at")
+  updatedAt            DateTime    @updatedAt @map("updated_at")
+  
+  productionPlan ProductionPlan @relation(fields: [productionPlanId], references: [id], onDelete: Cascade)
+
+  @@unique([productionPlanId, batchNumber])
+  @@index([productionPlanId])
+  @@index([status])
+  @@map("batches")
+}
+
+model ProductionEntry {
+  id        String   @id @default(uuid())
+  productId String   @map("product_id")
+  quantity  Decimal  @db.Decimal(14, 3)
+  shift     Shift
+  createdAt DateTime @default(now()) @map("created_at")
+  
+  product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@map("production_entries")
+}
+
+// Enums
+enum UserRole {
+  OPERATOR  @map("operator")
+  MANAGER   @map("manager")
+  DIRECTOR  @map("director")
+}
+
+enum ProductUnit {
+  KG @map("kg")
+  UN @map("un")
+}
+
+enum Shift {
+  MORNING   @map("morning")
+  AFTERNOON @map("afternoon")
+  NIGHT     @map("night")
+}
+
+enum ProductionPlanStatus {
+  PENDING     @map("pending")
+  IN_PROGRESS @map("in_progress")
+  COMPLETED   @map("completed")
+}
+
+enum BatchStatus {
+  PLANNED     @map("planned")
+  IN_PROGRESS @map("in_progress")
+  PAUSED      @map("paused")
+  COMPLETED   @map("completed")
+  STOPPED     @map("stopped")
+}
