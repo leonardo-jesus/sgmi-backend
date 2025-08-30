@@ -49,11 +49,10 @@ export class BatchController {
   performAction = asyncHandler(
     async (req: AuthenticatedRequest, res: Response) => {
       const { batchId } = req.params;
-      const { action, actual_kg } = req.body;
+      const { action } = req.body;
 
       await this.batchService.performBatchAction(batchId, {
         action,
-        actual_kg,
       });
 
       res.json({
@@ -107,10 +106,6 @@ export class BatchController {
       );
     }
 
-    if (batch.actual_kg && batch.estimated_kg > 0) {
-      metrics.efficiency_percentage =
-        Math.round((batch.actual_kg / batch.estimated_kg) * 100 * 100) / 100;
-    }
 
     return metrics;
   }

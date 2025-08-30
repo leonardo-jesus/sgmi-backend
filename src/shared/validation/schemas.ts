@@ -92,12 +92,10 @@ export const CreateBatchSchema = z.object({
 
 export const UpdateBatchStatusSchema = z.object({
   status: z.enum(['planned', 'in_progress', 'paused', 'completed', 'stopped']),
-  actual_kg: z.number().positive().optional(),
 });
 
 export const BatchActionSchema = z.object({
   action: z.enum(['start', 'pause', 'resume', 'complete', 'stop']),
-  actual_kg: z.number().positive().optional(),
 });
 
 // Report schemas

@@ -75,7 +75,6 @@ model Batch {
   endTime              DateTime?   @map("end_time")
   pauseDurationMinutes Int         @default(0) @map("pause_duration_minutes")
   estimatedKg          Decimal     @map("estimated_kg") @db.Decimal(14, 3)
-  actualKg             Decimal?    @map("actual_kg") @db.Decimal(14, 3)
   createdAt            DateTime    @default(now()) @map("created_at")
   updatedAt            DateTime    @updatedAt @map("updated_at")
   

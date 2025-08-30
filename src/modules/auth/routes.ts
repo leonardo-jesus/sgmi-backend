@@ -1,16 +1,16 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { authenticate, authorize } from '../../../shared/middleware/auth.js';
+import { authenticate, authorize } from '../../shared/middleware/auth.js';
 import {
   validateBody,
   validateParams,
-} from '../../../shared/middleware/validation.js';
+} from '../../shared/middleware/validation.js';
 import {
   LoginSchema,
   RefreshTokenSchema,
   RegisterSchema,
   UuidParamSchema,
-} from '../../../shared/validation/schemas.js';
+} from '../../shared/validation/schemas.js';
 import { AuthController } from './AuthController.js';
 
 const router = Router();

@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
-import type { AuthenticatedRequest } from '../../../shared/middleware/auth.js';
-import { asyncHandler } from '../../../shared/middleware/errorHandler.js';
+import type { AuthenticatedRequest } from '../../shared/middleware/auth.js';
+import { asyncHandler } from '../../shared/middleware/errorHandler.js';
 import { AuthService } from './AuthService.js';
 
 export class AuthController {

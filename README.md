@@ -8,7 +8,7 @@ A comprehensive backend system for managing industrial production with separate 
 - **Production Planning**: Create and manage production plans with batch planning
 - **Production Reports**: Comprehensive reports with filtering by date, product, and shift
 - **Production Analytics**: Daily trends, shift performance, and efficiency metrics
-- **Total Production Tracking**: Monitor planned vs actual production
+- **Total Production Tracking**: Monitor planned vs estimated production
 
 ### 🏭 Production Module  
 - **Production Entry**: Register production entries by product and shift

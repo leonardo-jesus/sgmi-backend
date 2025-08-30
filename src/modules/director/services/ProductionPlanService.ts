@@ -176,18 +176,6 @@ export class ProductionPlanService {
         },
       });
 
-      // Get actual production totals from completed batches
-      const actualTotals = await prisma.batch.groupBy({
-        by: ['productionPlanId'],
-        where: {
-          status: 'COMPLETED',
-          productionPlan: dateWhere,
-        },
-        _sum: {
-          actualKg: true,
-        },
-      });
-
       // Get product information
       const productIds = plannedTotals.map((p) => p.productId);
       const products = await prisma.product.findMany({
@@ -197,25 +185,37 @@ export class ProductionPlanService {
 
       const productMap = new Map(products.map((p) => [p.id, p.name]));
 
-      // Create a map of actual production by product
-      const actualByProduct = new Map<UUID, number>();
+      // Get estimated production totals from completed batches
+      const completedBatches = await prisma.batch.groupBy({
+        by: ['productionPlanId'],
+        where: {
+          status: 'COMPLETED',
+          productionPlan: dateWhere,
+        },
+        _sum: {
+          estimatedKg: true,
+        },
+      });
 
-      for (const actual of actualTotals) {
+      // Create a map of estimated production by product
+      const estimatedByProduct = new Map<UUID, number>();
+
+      for (const batch of completedBatches) {
         const plan = await prisma.productionPlan.findUnique({
-          where: { id: actual.productionPlanId },
+          where: { id: batch.productionPlanId },
           select: { productId: true },
         });
         if (plan) {
-          const current = actualByProduct.get(plan.productId) || 0;
-          actualByProduct.set(
+          const current = estimatedByProduct.get(plan.productId) || 0;
+          estimatedByProduct.set(
             plan.productId,
-            current + Number(actual._sum.actualKg || 0)
+            current + Number(batch._sum.estimatedKg || 0)
           );
         }
       }
 
       return plannedTotals.map((planned) => {
-        const totalProduced = actualByProduct.get(planned.productId) || 0;
+        const totalProduced = estimatedByProduct.get(planned.productId) || 0;
         const totalPlanned = Number(planned._sum.plannedQuantity || 0);
 
         return {

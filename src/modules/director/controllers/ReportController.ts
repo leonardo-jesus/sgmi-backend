@@ -37,9 +37,9 @@ export class ReportController {
                 0
               ) * 100
             ) / 100,
-          total_actual_kg:
+          total_estimated_kg:
             Math.round(
-              report.reduce((sum, item) => sum + item.actual_kg, 0) * 100
+              report.reduce((sum, item) => sum + item.estimated_kg, 0) * 100
             ) / 100,
         },
       });

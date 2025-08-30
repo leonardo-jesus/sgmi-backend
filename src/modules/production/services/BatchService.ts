@@ -5,7 +5,6 @@ import { wsManager } from '../../../shared/websocket/manager.js';
 
 export interface BatchAction {
   action: 'start' | 'pause' | 'resume' | 'complete' | 'stop';
-  actual_kg?: number;
 }
 
 export class BatchService {
@@ -95,7 +94,6 @@ export class BatchService {
         endTime: batch.endTime,
         pauseDurationMinutes: batch.pauseDurationMinutes,
         estimatedKg: batch.estimatedKg,
-        actualKg: batch.actualKg,
         createdAt: batch.createdAt,
         updatedAt: batch.updatedAt,
       }));
@@ -179,17 +177,9 @@ export class BatchService {
               'invalid_batch_action'
             );
           }
-          if (!action.actual_kg || action.actual_kg <= 0) {
-            throw createError(
-              'Actual KG is required to complete batch',
-              400,
-              'actual_kg_required'
-            );
-          }
           newStatus = 'COMPLETED';
           updateData.status = 'COMPLETED';
           updateData.endTime = now;
-          updateData.actualKg = action.actual_kg;
           break;
 
         case 'stop':
@@ -203,9 +193,6 @@ export class BatchService {
           newStatus = 'STOPPED';
           updateData.status = 'STOPPED';
           updateData.endTime = now;
-          if (action.actual_kg) {
-            updateData.actualKg = action.actual_kg;
-          }
 
           // Handle pause cleanup if stopping from paused state
           if (currentStatus === 'PAUSED') {
@@ -244,7 +231,6 @@ export class BatchService {
           previous_status: currentStatus,
           new_status: newStatus,
           action: action.action,
-          actual_kg: action.actual_kg,
           timestamp: now,
         },
       });
@@ -272,7 +258,6 @@ export class BatchService {
     end_time?: Date;
     pause_duration_minutes: number;
     estimated_kg: number;
-    actual_kg?: number;
     production_plan_id: UUID;
     batch_number: number;
   }> {
@@ -292,7 +277,6 @@ export class BatchService {
         end_time: batch.endTime || undefined,
         pause_duration_minutes: batch.pauseDurationMinutes,
         estimated_kg: Number(batch.estimatedKg),
-        actual_kg: batch.actualKg ? Number(batch.actualKg) : undefined,
         production_plan_id: batch.productionPlanId,
         batch_number: batch.batchNumber,
       };

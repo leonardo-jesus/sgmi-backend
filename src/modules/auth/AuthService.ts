@@ -1,13 +1,13 @@
-import { prisma } from '../../../shared/database/prisma.js';
-import { createError } from '../../../shared/middleware/errorHandler.js';
-import type { User, UserRole, UUID } from '../../../shared/types/common.js';
+import { prisma } from '../../shared/database/prisma.js';
+import { createError } from '../../shared/middleware/errorHandler.js';
+import type { User, UserRole, UUID } from '../../shared/types/common.js';
 import {
   comparePassword,
   generateAccessToken,
   generateRefreshToken,
   hashPassword,
   verifyRefreshToken,
-} from '../../../shared/utils/auth.js';
+} from '../../shared/utils/auth.js';
 
 export interface LoginCredentials {
   email: string;
