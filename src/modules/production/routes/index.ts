@@ -51,22 +51,22 @@ router.post(
 );
 
 router.get(
-  '/plans/:planId/batches',
-  validateParams(UuidParamSchema.extend({ planId: UuidParamSchema.shape.id })),
+  '/plans/:id/batches',
+  validateParams(UuidParamSchema.extend({ id: UuidParamSchema.shape.id })),
   batchController.getBatches
 );
 
 router.post(
-  '/batches/:batchId/actions',
+  '/batches/:id/actions',
   authorize(['OPERATOR', 'MANAGER', 'DIRECTOR']),
-  validateParams(UuidParamSchema.extend({ batchId: UuidParamSchema.shape.id })),
+  validateParams(UuidParamSchema.extend({ id: UuidParamSchema.shape.id })),
   validateBody(BatchActionSchema),
   batchController.performAction
 );
 
 router.get(
-  '/batches/:batchId/status',
-  validateParams(UuidParamSchema.extend({ batchId: UuidParamSchema.shape.id })),
+  '/batches/:id/status',
+  validateParams(UuidParamSchema.extend({ id: UuidParamSchema.shape.id })),
   batchController.getBatchStatus
 );
 
