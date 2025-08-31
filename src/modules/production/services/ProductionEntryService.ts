@@ -91,6 +91,7 @@ export class ProductionEntryService {
           id: entry.product.id,
           name: entry.product.name,
           unit: entry.product.unit,
+          type: entry.product.type,
           active: entry.product.active,
           createdAt: entry.product.createdAt,
         },

@@ -1,7 +1,12 @@
 import { prisma } from '../../../shared/database/prisma.js';
 import { createError } from '../../../shared/middleware/errorHandler.js';
 import type { Batch, BatchStatus, UUID } from '../../../shared/types/common.js';
-import { wsManager } from '../../../shared/websocket/manager.js';
+// COMMENTED OUT FOR WEBSOCKET REFACTOR - DO NOT DELETE
+// import { wsManager } from '../../../shared/websocket/manager.js';
+import {
+  calculateKgFromBatches,
+  type ProductType,
+} from '../../../shared/constants/production.js';
 
 export interface BatchAction {
   action: 'start' | 'pause' | 'resume' | 'complete' | 'stop';
@@ -13,7 +18,7 @@ export class BatchService {
   async createBatch(data: {
     production_plan_id: UUID;
     batch_number: number;
-    estimated_kg: number;
+    batch_count: number;
   }): Promise<UUID> {
     try {
       // Verify production plan exists
@@ -48,26 +53,31 @@ export class BatchService {
         );
       }
 
+      // Calculate estimated KG from batch count and product type
+      const productType = plan.product.type as ProductType;
+      const estimatedKg = calculateKgFromBatches(productType, data.batch_count);
+
       const batch = await prisma.batch.create({
         data: {
           productionPlanId: data.production_plan_id,
           batchNumber: data.batch_number,
-          estimatedKg: data.estimated_kg,
+          estimatedKg,
           status: 'PLANNED',
         },
       });
 
+      // COMMENTED OUT FOR WEBSOCKET REFACTOR - DO NOT DELETE
       // Broadcast batch creation
-      wsManager.broadcastToBatchOperators({
-        type: 'batch_created',
-        data: {
-          batchId: batch.id,
-          production_plan_id: data.production_plan_id,
-          batch_number: data.batch_number,
-          product_name: plan.product?.name,
-          estimated_kg: data.estimated_kg,
-        },
-      });
+      // wsManager.broadcastToBatchOperators({
+      //   type: 'batch_created',
+      //   data: {
+      //     batchId: batch.id,
+      //     production_plan_id: data.production_plan_id,
+      //     batch_number: data.batch_number,
+      //     product_name: plan.product?.name,
+      //     estimated_kg: estimatedKg,
+      //   },
+      // });
 
       return batch.id;
     } catch (_error) {
@@ -220,20 +230,21 @@ export class BatchService {
       // Get updated batch with production plan info for broadcast
       const updatedBatch = await this.getBatchWithPlanInfo(batchId);
 
+      // COMMENTED OUT FOR WEBSOCKET REFACTOR - DO NOT DELETE
       // Broadcast status change
-      wsManager.broadcast({
-        type: 'batch_status_updated',
-        data: {
-          batchId,
-          batch_number: updatedBatch.batch_number,
-          production_plan_id: updatedBatch.production_plan_id,
-          product_name: updatedBatch.product_name,
-          previous_status: currentStatus,
-          new_status: newStatus,
-          action: action.action,
-          timestamp: now,
-        },
-      });
+      // wsManager.broadcast({
+      //   type: 'batch_status_updated',
+      //   data: {
+      //     batchId,
+      //     batch_number: updatedBatch.batch_number,
+      //     production_plan_id: updatedBatch.production_plan_id,
+      //     product_name: updatedBatch.product_name,
+      //     previous_status: currentStatus,
+      //     new_status: newStatus,
+      //     action: action.action,
+      //     timestamp: now,
+      //   },
+      // });
 
       // If batch is completed, check if all batches in plan are done
       if (newStatus === 'COMPLETED') {
@@ -314,6 +325,94 @@ export class BatchService {
     };
   }
 
+  // NEW SIMPLIFIED BATCH CREATION METHOD
+  async createSimpleBatch(data: {
+    product: string;
+    shift: string; // "MANHÃ" | "TARDE" | "NOITE"
+    date: string; // DD-MM-YYYY format
+    bateladas: number;
+    duration: number; // duration in minutes
+  }): Promise<{
+    batchId: UUID;
+    productionPlanId: UUID;
+  }> {
+    try {
+      // Find product by name
+      const product = await prisma.product.findFirst({
+        where: { name: data.product },
+      });
+
+      if (!product) {
+        throw createError(
+          `Product "${data.product}" not found`,
+          404,
+          'product_not_found'
+        );
+      }
+
+      // Convert date from DD-MM-YYYY to ISO format
+      const [day, month, year] = data.date.split('-');
+      const plannedDate = new Date(`${year}-${month}-${day}T00:00:00.000Z`);
+
+      // Map shift to backend format
+      const shiftMapping: Record<string, 'MORNING' | 'AFTERNOON' | 'NIGHT'> = {
+        MANHÃ: 'MORNING',
+        TARDE: 'AFTERNOON',
+        NOITE: 'NIGHT',
+      };
+      const backendShift = shiftMapping[data.shift];
+
+      if (!backendShift) {
+        throw createError(`Invalid shift: ${data.shift}`, 400, 'invalid_shift');
+      }
+
+      // Create production plan
+      const productionPlan = await prisma.productionPlan.create({
+        data: {
+          productId: product.id,
+          plannedQuantity: data.bateladas * 25, // Estimate 25kg per batch
+          shift: backendShift,
+          plannedDate,
+          status: 'COMPLETED', // Mark as completed since it's already done
+        },
+      });
+
+      // Calculate estimated KG from batch count and product type
+      const productType = product.type as ProductType;
+      const estimatedKg = calculateKgFromBatches(productType, data.bateladas);
+
+      // Create the batch with completed status and duration
+      const now = new Date();
+      const startTime = new Date(now.getTime() - data.duration * 60 * 1000); // Calculate start time based on duration
+
+      const batch = await prisma.batch.create({
+        data: {
+          productionPlanId: productionPlan.id,
+          batchNumber: 1,
+          estimatedKg,
+          status: 'COMPLETED',
+          startTime,
+          endTime: now,
+          pauseDurationMinutes: 0,
+        },
+      });
+
+      return {
+        batchId: batch.id,
+        productionPlanId: productionPlan.id,
+      };
+    } catch (_error) {
+      if (_error instanceof Error && 'statusCode' in _error) {
+        throw _error;
+      }
+      throw createError(
+        'Failed to create simple batch',
+        500,
+        'create_simple_batch_failed'
+      );
+    }
+  }
+
   private async checkAndUpdatePlanCompletion(
     production_plan_id: UUID
   ): Promise<void> {
@@ -338,16 +437,17 @@ export class BatchService {
         });
 
         if (planInfo) {
-          wsManager.broadcastToDirectors({
-            type: 'production_plan_completed',
-            data: {
-              production_plan_id,
-              product_name: planInfo.product.name,
-              planned_date: planInfo.plannedDate,
-              shift: planInfo.shift,
-              total_batches: batches.length,
-            },
-          });
+          // COMMENTED OUT FOR WEBSOCKET REFACTOR - DO NOT DELETE
+          // wsManager.broadcastToDirectors({
+          //   type: 'production_plan_completed',
+          //   data: {
+          //     production_plan_id,
+          //     product_name: planInfo.product.name,
+          //     planned_date: planInfo.plannedDate,
+          //     shift: planInfo.shift,
+          //     total_batches: batches.length,
+          //   },
+          // });
         }
       }
     } catch (_error) {

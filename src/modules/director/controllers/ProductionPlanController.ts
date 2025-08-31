@@ -69,11 +69,12 @@ export class ProductionPlanController {
 
   getTotalProduction = asyncHandler(
     async (req: AuthenticatedRequest, res: Response) => {
-      const { from, to } = req.query as any;
+      const { from, to, product_id } = req.query as any;
 
       const filters: any = {};
       if (from) filters.from = new Date(from);
       if (to) filters.to = new Date(to);
+      if (product_id) filters.product_id = product_id;
 
       const totals = await this.planService.getTotalProduction(filters);
 

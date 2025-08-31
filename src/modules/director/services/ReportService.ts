@@ -8,13 +8,13 @@ export interface ProductionReportData {
   product_id: UUID;
   product_name: string;
   batches_count: number;
-  total_production_hours: number;
+  total_production_minutes: number;
   estimated_kg: number;
 }
 
 export interface ProductionSummary {
   total_batches: number;
-  total_production_hours: number;
+  total_production_minutes: number;
   total_estimated_kg: number;
   products_summary: Array<{
     product_id: UUID;
@@ -65,9 +65,9 @@ export class ReportService {
           COUNT(b.id) as batches_count,
           COALESCE(SUM(
             CASE WHEN b.start_time IS NOT NULL AND b.end_time IS NOT NULL
-            THEN EXTRACT(EPOCH FROM (b.end_time - b.start_time - INTERVAL '1 minute' * b.pause_duration_minutes)) / 3600
+            THEN EXTRACT(EPOCH FROM (b.end_time - b.start_time - INTERVAL '1 minute' * b.pause_duration_minutes)) / 60
             ELSE 0 END
-          ), 0) as total_production_hours,
+          ), 0) as total_production_minutes,
           COALESCE(SUM(b.estimated_kg), 0) as estimated_kg
         FROM production_plans pp
         JOIN products p ON p.id = pp.product_id
@@ -85,7 +85,7 @@ export class ReportService {
         product_id: item.product_id,
         product_name: item.product_name,
         batches_count: Number(item.batches_count || 0),
-        total_production_hours: Number(item.total_production_hours || 0),
+        total_production_minutes: Number(item.total_production_minutes || 0),
         estimated_kg: Number(item.estimated_kg || 0),
       }));
     } catch (_error) {
@@ -101,6 +101,7 @@ export class ReportService {
     filters: {
       from?: Date;
       to?: Date;
+      product_id?: UUID;
     } = {}
   ): Promise<ProductionSummary> {
     try {
@@ -111,8 +112,8 @@ export class ReportService {
         (sum, item) => sum + item.batches_count,
         0
       );
-      const totalProductionHours = reportData.reduce(
-        (sum, item) => sum + item.total_production_hours,
+      const totalProductionMinutes = reportData.reduce(
+        (sum, item) => sum + item.total_production_minutes,
         0
       );
       const totalEstimatedKg = reportData.reduce(
@@ -154,7 +155,8 @@ export class ReportService {
 
       return {
         total_batches: totalBatches,
-        total_production_hours: Math.round(totalProductionHours * 100) / 100,
+        total_production_minutes:
+          Math.round(totalProductionMinutes * 100) / 100,
         total_estimated_kg: Math.round(totalEstimatedKg * 100) / 100,
         products_summary: productsSummary,
       };
@@ -229,7 +231,7 @@ export class ReportService {
     Array<{
       shift: 'MORNING' | 'AFTERNOON' | 'NIGHT';
       total_batches: number;
-      total_production_hours: number;
+      total_production_minutes: number;
       total_estimated_kg: number;
     }>
   > {
@@ -241,7 +243,7 @@ export class ReportService {
         string,
         {
           batches_count: number;
-          production_hours: number;
+          production_minutes: number;
           estimated_kg: number;
         }
       >();
@@ -249,12 +251,12 @@ export class ReportService {
       reportData.forEach((item) => {
         const existing = shiftMap.get(item.shift) || {
           batches_count: 0,
-          production_hours: 0,
+          production_minutes: 0,
           estimated_kg: 0,
         };
 
         existing.batches_count += item.batches_count;
-        existing.production_hours += item.total_production_hours;
+        existing.production_minutes += item.total_production_minutes;
         existing.estimated_kg += item.estimated_kg;
 
         shiftMap.set(item.shift, existing);
@@ -263,7 +265,8 @@ export class ReportService {
       return Array.from(shiftMap.entries()).map(([shift, data]) => ({
         shift: shift as 'MORNING' | 'AFTERNOON' | 'NIGHT',
         total_batches: data.batches_count,
-        total_production_hours: Math.round(data.production_hours * 100) / 100,
+        total_production_minutes:
+          Math.round(data.production_minutes * 100) / 100,
         total_estimated_kg: Math.round(data.estimated_kg * 100) / 100,
       }));
     } catch (_error) {
@@ -274,5 +277,4 @@ export class ReportService {
       );
     }
   }
-
 }

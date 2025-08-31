@@ -148,6 +148,7 @@ export class ProductionPlanService {
     filters: {
       from?: Date;
       to?: Date;
+      product_id?: UUID;
     } = {}
   ): Promise<
     Array<{
@@ -159,12 +160,15 @@ export class ProductionPlanService {
     }>
   > {
     try {
-      // Build where clause for date filtering
+      // Build where clause for date and product filtering
       const dateWhere: any = {};
       if (filters.from || filters.to) {
         dateWhere.plannedDate = {};
         if (filters.from) dateWhere.plannedDate.gte = filters.from;
         if (filters.to) dateWhere.plannedDate.lte = filters.to;
+      }
+      if (filters.product_id) {
+        dateWhere.productId = filters.product_id;
       }
 
       // Get planned totals grouped by product

@@ -87,7 +87,7 @@ export const ProductionEntryQuerySchema = z.object({
 export const CreateBatchSchema = z.object({
   production_plan_id: UuidSchema,
   batch_number: z.number().int().positive('Batch number must be positive'),
-  estimated_kg: z.number().positive('Estimated KG must be positive'),
+  batch_count: z.number().int().positive('Batch count must be positive'),
 });
 
 export const UpdateBatchStatusSchema = z.object({

@@ -24,7 +24,7 @@ const reportController = new ReportController();
 router.use(authenticate);
 router.use(authorize(['DIRECTOR', 'MANAGER']));
 
-// Production Plan routes
+// Production Planning routes (Director creates daily production plans)
 router.post(
   '/production-plans',
   validateBody(CreateProductionPlanSchema),
@@ -44,9 +44,17 @@ router.patch(
   planController.updatePlanStatus
 );
 
+// Get planned production totals (what should be produced)
 router.get(
   '/production-totals',
-  validateQuery(DateRangeSchema),
+  validateQuery(ProductionReportQuerySchema),
+  planController.getTotalProduction
+);
+
+// Alternative semantic route for planned totals
+router.get(
+  '/planned-totals',
+  validateQuery(ProductionReportQuerySchema),
   planController.getTotalProduction
 );
 
@@ -59,7 +67,7 @@ router.get(
 
 router.get(
   '/reports/summary',
-  validateQuery(DateRangeSchema),
+  validateQuery(ProductionReportQuerySchema),
   reportController.getProductionSummary
 );
 

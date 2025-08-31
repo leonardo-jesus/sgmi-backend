@@ -1,6 +1,6 @@
+import type { ProductionPlan } from '@prisma/client';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
-import type { ProductionPlan } from '@prisma/client';
 
 declare const process: {
   exit: (code: number) => void;
@@ -55,70 +55,94 @@ async function main() {
 
   console.log(`✅ Created users: ${director.name}, ${manager.name}, ${operator.name}`);
 
-  // Create products from both systems
+  // Create products
   console.log('🍪 Creating products...');
 
-  // Products from SGMI-PADARIA (bakery products)
-  const biscoitoMandiocaDoce = await prisma.product.create({
+  // Products specified by the user with their types
+  const amanteigadoLeite = await prisma.product.create({
     data: {
-      name: 'Biscoito de Mandioca Doce',
+      name: 'AMANTEIGADO SABOR LEITE',
       unit: 'KG',
+      type: 'AMANTEIGADO',
       active: true,
     },
   });
 
-  const biscoitoMandiocaQueijo = await prisma.product.create({
+  const amanteigadoMaca = await prisma.product.create({
     data: {
-      name: 'Biscoito de Mandioca com Queijo',
-      unit: 'KG', 
+      name: 'AMANTEIGADO SABOR MAÇÃ COM CANELA',
+      unit: 'KG',
+      type: 'AMANTEIGADO',
       active: true,
     },
   });
 
-  const biscoitoTapioca = await prisma.product.create({
+  const amanteigadoBanana = await prisma.product.create({
     data: {
-      name: 'Biscoito de Tapioca',
+      name: 'AMANTEIGADO SABOR BANANA COM CANELA',
       unit: 'KG',
+      type: 'AMANTEIGADO',
       active: true,
     },
   });
 
-  const biscoitoMilho = await prisma.product.create({
+  const amanteigadoNata = await prisma.product.create({
     data: {
-      name: 'Biscoito de Milho',
+      name: 'AMANTEIGADO SABOR NATA',
       unit: 'KG',
+      type: 'AMANTEIGADO',
       active: true,
     },
   });
 
-  // Products from SGMI (snack products)
-  const fandangos = await prisma.product.create({
+  const amanteigadoCoco = await prisma.product.create({
     data: {
-      name: 'Fandangos',
+      name: 'AMANTEIGADO SABOR COCO',
       unit: 'KG',
+      type: 'AMANTEIGADO',
       active: true,
     },
   });
 
-  const doritos = await prisma.product.create({
+  const rosquinhaChocolate = await prisma.product.create({
     data: {
-      name: 'Doritos', 
+      name: 'ROSQUINHA DE CHOCOLATE',
       unit: 'KG',
+      type: 'DOCE',
       active: true,
     },
   });
 
-  const baconzitos = await prisma.product.create({
+  const cookieGotas = await prisma.product.create({
     data: {
-      name: 'Baconzitos',
+      name: 'COOKIE COM GOTAS DE CHOCOLATE',
       unit: 'KG',
+      type: 'DOCE',
+      active: true,
+    },
+  });
+
+  const cookieIntegral = await prisma.product.create({
+    data: {
+      name: 'COOKIE INTEGRAL COM GOTAS DE CHOCOLATE',
+      unit: 'KG',
+      type: 'DOCE',
+      active: true,
+    },
+  });
+
+  const flocosMilho = await prisma.product.create({
+    data: {
+      name: 'FLOCOS DE MILHO SEM AÇÚCAR',
+      unit: 'KG',
+      type: 'FLOCO',
       active: true,
     },
   });
 
   const products = [
-    biscoitoMandiocaDoce, biscoitoMandiocaQueijo, biscoitoTapioca, biscoitoMilho,
-    fandangos, doritos, baconzitos
+    amanteigadoLeite, amanteigadoMaca, amanteigadoBanana, amanteigadoNata, amanteigadoCoco,
+    rosquinhaChocolate, cookieGotas, cookieIntegral, flocosMilho
   ];
 
   console.log(`✅ Created ${products.length} products`);
@@ -128,7 +152,8 @@ async function main() {
 
   // Historical production plans based on mocked data
   const productionDates = [
-    '2025-08-10', '2025-08-11', '2025-08-12', '2025-08-13', '2025-08-14'
+    '2025-08-10', '2025-08-11', '2025-08-12', '2025-08-13', '2025-08-14',
+    '2025-08-28', '2025-08-29', '2025-08-30', '2025-08-31'
   ];
 
   const productionPlans: ProductionPlan[] = [];
@@ -136,10 +161,10 @@ async function main() {
   for (let i = 0; i < productionDates.length; i++) {
     const date = productionDates[i];
     
-    // Create morning shift plan with Fandangos
+    // Create morning shift plan with AMANTEIGADO SABOR LEITE
     const morningPlan = await prisma.productionPlan.create({
       data: {
-        productId: fandangos.id,
+        productId: amanteigadoLeite.id,
         plannedQuantity: 300,
         shift: 'MORNING',
         plannedDate: new Date(date),
@@ -148,10 +173,10 @@ async function main() {
     });
     productionPlans.push(morningPlan);
 
-    // Create afternoon shift plan with Doritos  
+    // Create afternoon shift plan with COOKIE COM GOTAS DE CHOCOLATE  
     const afternoonPlan = await prisma.productionPlan.create({
       data: {
-        productId: doritos.id,
+        productId: cookieGotas.id,
         plannedQuantity: 200,
         shift: 'AFTERNOON', 
         plannedDate: new Date(date),
@@ -160,10 +185,10 @@ async function main() {
     });
     productionPlans.push(afternoonPlan);
 
-    // Create night shift plan with Baconzitos
+    // Create night shift plan with ROSQUINHA DE CHOCOLATE
     const nightPlan = await prisma.productionPlan.create({
       data: {
-        productId: baconzitos.id,
+        productId: rosquinhaChocolate.id,
         plannedQuantity: 150,
         shift: 'NIGHT',
         plannedDate: new Date(date),
@@ -179,14 +204,27 @@ async function main() {
   console.log('🏭 Creating batches...');
 
   const batchesData = [
-    // Data extracted from SGMI mock tableRows
-    { date: '2025-08-10', shift: 'MORNING', product: fandangos.id, batches: 12, approxKg: 240 },
-    { date: '2025-08-10', shift: 'AFTERNOON', product: doritos.id, batches: 8, approxKg: 160 },
-    { date: '2025-08-11', shift: 'NIGHT', product: baconzitos.id, batches: 9, approxKg: 180 },
-    { date: '2025-08-12', shift: 'MORNING', product: fandangos.id, batches: 10, approxKg: 200 },
-    { date: '2025-08-12', shift: 'AFTERNOON', product: doritos.id, batches: 7, approxKg: 140 },
-    { date: '2025-08-13', shift: 'NIGHT', product: baconzitos.id, batches: 9, approxKg: 180 },
-    { date: '2025-08-14', shift: 'MORNING', product: fandangos.id, batches: 15, approxKg: 300 },
+    // Data extracted from SGMI mock tableRows updated with new products
+    { date: '2025-08-10', shift: 'MORNING', product: amanteigadoLeite.id, batches: 12, approxKg: 240 },
+    { date: '2025-08-10', shift: 'AFTERNOON', product: cookieGotas.id, batches: 8, approxKg: 160 },
+    { date: '2025-08-11', shift: 'NIGHT', product: rosquinhaChocolate.id, batches: 9, approxKg: 180 },
+    { date: '2025-08-12', shift: 'MORNING', product: amanteigadoLeite.id, batches: 10, approxKg: 200 },
+    { date: '2025-08-12', shift: 'AFTERNOON', product: cookieGotas.id, batches: 7, approxKg: 140 },
+    { date: '2025-08-13', shift: 'NIGHT', product: rosquinhaChocolate.id, batches: 9, approxKg: 180 },
+    { date: '2025-08-14', shift: 'MORNING', product: amanteigadoLeite.id, batches: 15, approxKg: 300 },
+    // Recent dates with batch data
+    { date: '2025-08-28', shift: 'MORNING', product: amanteigadoLeite.id, batches: 14, approxKg: 280 },
+    { date: '2025-08-28', shift: 'AFTERNOON', product: cookieGotas.id, batches: 9, approxKg: 180 },
+    { date: '2025-08-28', shift: 'NIGHT', product: rosquinhaChocolate.id, batches: 8, approxKg: 160 },
+    { date: '2025-08-29', shift: 'MORNING', product: amanteigadoLeite.id, batches: 13, approxKg: 260 },
+    { date: '2025-08-29', shift: 'AFTERNOON', product: cookieGotas.id, batches: 10, approxKg: 200 },
+    { date: '2025-08-29', shift: 'NIGHT', product: rosquinhaChocolate.id, batches: 7, approxKg: 140 },
+    { date: '2025-08-30', shift: 'MORNING', product: amanteigadoLeite.id, batches: 16, approxKg: 320 },
+    { date: '2025-08-30', shift: 'AFTERNOON', product: cookieGotas.id, batches: 11, approxKg: 220 },
+    { date: '2025-08-30', shift: 'NIGHT', product: rosquinhaChocolate.id, batches: 9, approxKg: 180 },
+    { date: '2025-08-31', shift: 'MORNING', product: amanteigadoLeite.id, batches: 12, approxKg: 240 },
+    { date: '2025-08-31', shift: 'AFTERNOON', product: cookieGotas.id, batches: 8, approxKg: 160 },
+    { date: '2025-08-31', shift: 'NIGHT', product: rosquinhaChocolate.id, batches: 10, approxKg: 200 },
   ];
 
   let totalBatches = 0;
@@ -232,13 +270,15 @@ async function main() {
   console.log('📝 Creating production entries...');
 
   const productionEntries = [
-    { productId: biscoitoMandiocaDoce.id, quantity: 45.5, shift: 'MORNING' },
-    { productId: biscoitoMandiocaQueijo.id, quantity: 38.2, shift: 'AFTERNOON' },
-    { productId: biscoitoTapioca.id, quantity: 52.1, shift: 'NIGHT' },
-    { productId: biscoitoMilho.id, quantity: 41.8, shift: 'MORNING' },
-    { productId: fandangos.id, quantity: 78.5, shift: 'AFTERNOON' },
-    { productId: doritos.id, quantity: 65.3, shift: 'NIGHT' },
-    { productId: baconzitos.id, quantity: 58.7, shift: 'MORNING' },
+    { productId: amanteigadoLeite.id, quantity: 45.5, shift: 'MORNING' },
+    { productId: amanteigadoMaca.id, quantity: 38.2, shift: 'AFTERNOON' },
+    { productId: amanteigadoBanana.id, quantity: 52.1, shift: 'NIGHT' },
+    { productId: amanteigadoNata.id, quantity: 41.8, shift: 'MORNING' },
+    { productId: amanteigadoCoco.id, quantity: 78.5, shift: 'AFTERNOON' },
+    { productId: rosquinhaChocolate.id, quantity: 65.3, shift: 'NIGHT' },
+    { productId: cookieGotas.id, quantity: 58.7, shift: 'MORNING' },
+    { productId: cookieIntegral.id, quantity: 62.4, shift: 'AFTERNOON' },
+    { productId: flocosMilho.id, quantity: 48.9, shift: 'NIGHT' },
   ];
 
   for (const entry of productionEntries) {
@@ -260,19 +300,19 @@ async function main() {
 
   const currentPlans = [
     {
-      productId: biscoitoMandiocaDoce.id,
+      productId: amanteigadoLeite.id,
       plannedQuantity: 100,
       shift: 'MORNING' as const,
       status: 'PENDING' as const,
     },
     {
-      productId: biscoitoTapioca.id, 
+      productId: cookieIntegral.id, 
       plannedQuantity: 75,
       shift: 'AFTERNOON' as const,
       status: 'PENDING' as const,
     },
     {
-      productId: fandangos.id,
+      productId: flocosMilho.id,
       plannedQuantity: 200,
       shift: 'NIGHT' as const, 
       status: 'PENDING' as const,

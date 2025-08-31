@@ -23,7 +23,8 @@ const batchController = new BatchController();
 // All production routes require authentication
 router.use(authenticate);
 
-// Production Entry routes (accessible to all authenticated users)
+// Production Entry routes - Simple production logging (legacy system)
+// Used for basic production recording without batch tracking
 router.post(
   '/entries',
   validateBody(CreateProductionEntrySchema),
@@ -42,7 +43,8 @@ router.get(
   entryController.getTotals
 );
 
-// Batch routes (accessible to operators, managers, and directors)
+// Batch routes - Real-time production tracking (operators record actual batches)
+// Used in @SGMI-PADARIA where operators log batch count and duration
 router.post(
   '/batches',
   authorize(['OPERATOR', 'MANAGER', 'DIRECTOR']),
@@ -68,6 +70,13 @@ router.get(
   '/batches/:id/status',
   validateParams(UuidParamSchema.extend({ id: UuidParamSchema.shape.id })),
   batchController.getBatchStatus
+);
+
+// NEW SIMPLIFIED BATCH CREATION ROUTE
+router.post(
+  '/batches/simple',
+  authorize(['OPERATOR', 'MANAGER', 'DIRECTOR']),
+  batchController.createSimpleBatch
 );
 
 export { router as productionRouter };

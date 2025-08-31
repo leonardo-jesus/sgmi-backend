@@ -12,12 +12,12 @@ export class BatchController {
 
   createBatch = asyncHandler(
     async (req: AuthenticatedRequest, res: Response) => {
-      const { production_plan_id, batch_number, estimated_kg } = req.body;
+      const { production_plan_id, batch_number, batch_count } = req.body;
 
       const batchId = await this.batchService.createBatch({
         production_plan_id,
         batch_number,
-        estimated_kg,
+        batch_count,
       });
 
       res.status(201).json({
@@ -81,6 +81,29 @@ export class BatchController {
     }
   );
 
+  // NEW SIMPLIFIED BATCH CREATION ENDPOINT
+  createSimpleBatch = asyncHandler(
+    async (req: AuthenticatedRequest, res: Response) => {
+      const { product, shift, date, bateladas, duration } = req.body;
+
+      // This will create a production plan and batch in one go
+      // with the completed status and duration already set
+      const result = await this.batchService.createSimpleBatch({
+        product,
+        shift,
+        date,
+        bateladas,
+        duration,
+      });
+
+      res.status(201).json({
+        success: true,
+        data: result,
+        message: 'Batch created successfully',
+      });
+    }
+  );
+
   private generateStatusSummary(batches: any[]): Record<string, number> {
     return batches.reduce((summary, batch) => {
       summary[batch.status] = (summary[batch.status] || 0) + 1;
@@ -105,7 +128,6 @@ export class BatchController {
         metrics.duration_minutes - batch.pause_duration_minutes
       );
     }
-
 
     return metrics;
   }

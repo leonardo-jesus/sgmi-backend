@@ -30,10 +30,10 @@ export class ReportController {
             (sum, item) => sum + item.batches_count,
             0
           ),
-          total_production_hours:
+          total_production_minutes:
             Math.round(
               report.reduce(
-                (sum, item) => sum + item.total_production_hours,
+                (sum, item) => sum + item.total_production_minutes,
                 0
               ) * 100
             ) / 100,
@@ -48,11 +48,12 @@ export class ReportController {
 
   getProductionSummary = asyncHandler(
     async (req: AuthenticatedRequest, res: Response) => {
-      const { from, to } = req.query as any;
+      const { from, to, product_id } = req.query as any;
 
       const filters: any = {};
       if (from) filters.from = new Date(from);
       if (to) filters.to = new Date(to);
+      if (product_id) filters.product_id = product_id;
 
       const summary = await this.reportService.getProductionSummary(filters);
 

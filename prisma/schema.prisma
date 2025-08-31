@@ -38,6 +38,7 @@ model Product {
   id        String      @id @default(uuid())
   name      String      @unique
   unit      ProductUnit
+  type      ProductType @default(AMANTEIGADO)
   active    Boolean     @default(true)
   createdAt DateTime    @default(now()) @map("created_at")
   
@@ -108,6 +109,12 @@ enum UserRole {
 enum ProductUnit {
   KG @map("kg")
   UN @map("un")
+}
+
+enum ProductType {
+  AMANTEIGADO @map("amanteigado")
+  DOCE        @map("doce")
+  FLOCO       @map("floco")
 }
 
 enum Shift {
