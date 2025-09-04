@@ -6,7 +6,9 @@ declare const process: {
   exit: (code: number) => void;
 };
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({
+  log: ['error'],
+});
 
 const SALT_ROUNDS = 12;
 
@@ -14,12 +16,20 @@ async function main() {
   console.log('🌱 Starting database seed...');
 
   // Clean existing data (in correct order to avoid foreign key constraints)
-  await prisma.batch.deleteMany();
-  await prisma.productionPlan.deleteMany();
-  await prisma.productionEntry.deleteMany();
-  await prisma.product.deleteMany();
-  await prisma.refreshToken.deleteMany();
-  await prisma.user.deleteMany();
+  console.log('🧹 Cleaning existing data...');
+  
+  // Use a fresh client for cleanup to avoid prepared statement conflicts
+  const cleanupClient = new PrismaClient();
+  try {
+    await cleanupClient.batch.deleteMany();
+    await cleanupClient.productionPlan.deleteMany();
+    await cleanupClient.productionEntry.deleteMany();
+    await cleanupClient.product.deleteMany();
+    await cleanupClient.refreshToken.deleteMany();
+    await cleanupClient.user.deleteMany();
+  } finally {
+    await cleanupClient.$disconnect();
+  }
 
   // Create users
   console.log('👥 Creating users...');
@@ -166,6 +176,7 @@ async function main() {
       data: {
         productId: amanteigadoLeite.id,
         plannedQuantity: 300,
+        bateladas: 3, // 3 batches of ~100kg each
         shift: 'MORNING',
         plannedDate: new Date(date),
         status: 'COMPLETED',
@@ -178,6 +189,7 @@ async function main() {
       data: {
         productId: cookieGotas.id,
         plannedQuantity: 200,
+        bateladas: 2, // 2 batches of ~100kg each
         shift: 'AFTERNOON', 
         plannedDate: new Date(date),
         status: 'COMPLETED',
@@ -190,6 +202,7 @@ async function main() {
       data: {
         productId: rosquinhaChocolate.id,
         plannedQuantity: 150,
+        bateladas: 2, // 2 batches of ~75kg each
         shift: 'NIGHT',
         plannedDate: new Date(date),
         status: 'COMPLETED',
@@ -229,39 +242,48 @@ async function main() {
 
   let totalBatches = 0;
 
-  for (const batchData of batchesData) {
-    // Find the corresponding production plan
-    const plan = productionPlans.find(p => 
-      p.productId === batchData.product &&
-      p.shift.toLowerCase() === batchData.shift.toLowerCase() &&
-      p.plannedDate.toISOString().startsWith(batchData.date)
-    );
+  // Process batches in smaller chunks to avoid prepared statement conflicts
+  const BATCH_CHUNK_SIZE = 10;
+  
+  for (let i = 0; i < batchesData.length; i += BATCH_CHUNK_SIZE) {
+    const chunk = batchesData.slice(i, i + BATCH_CHUNK_SIZE);
+    
+    await prisma.$transaction(async (tx) => {
+      for (const batchData of chunk) {
+        // Find the corresponding production plan
+        const plan = productionPlans.find(p => 
+          p.productId === batchData.product &&
+          p.shift.toLowerCase() === batchData.shift.toLowerCase() &&
+          p.plannedDate.toISOString().startsWith(batchData.date)
+        );
 
-    if (plan) {
-      const kgPerBatch = batchData.approxKg / batchData.batches;
+        if (plan) {
+          const kgPerBatch = batchData.approxKg / batchData.batches;
 
-      // Create multiple batches for this production plan
-      for (let batchNum = 1; batchNum <= batchData.batches; batchNum++) {
-        const startTime = new Date(`${batchData.date}T08:00:00Z`);
-        startTime.setHours(startTime.getHours() + (batchNum - 1) * 0.5); // 30 min intervals
+          // Create multiple batches for this production plan
+          for (let batchNum = 1; batchNum <= batchData.batches; batchNum++) {
+            const startTime = new Date(`${batchData.date}T08:00:00Z`);
+            startTime.setHours(startTime.getHours() + (batchNum - 1) * 0.5); // 30 min intervals
 
-        const endTime = new Date(startTime);
-        endTime.setMinutes(endTime.getMinutes() + 25); // 25 minute batches
+            const endTime = new Date(startTime);
+            endTime.setMinutes(endTime.getMinutes() + 25); // 25 minute batches
 
-        await prisma.batch.create({
-          data: {
-            productionPlanId: plan.id,
-            batchNumber: batchNum,
-            status: 'COMPLETED',
-            startTime,
-            endTime,
-            pauseDurationMinutes: 0,
-            estimatedKg: kgPerBatch,
-          },
-        });
-        totalBatches++;
+            await tx.batch.create({
+              data: {
+                productionPlanId: plan.id,
+                batchNumber: batchNum,
+                status: 'COMPLETED',
+                startTime,
+                endTime,
+                pauseDurationMinutes: 0,
+                estimatedKg: kgPerBatch,
+              },
+            });
+            totalBatches++;
+          }
+        }
       }
-    }
+    });
   }
 
   console.log(`✅ Created ${totalBatches} batches`);
@@ -302,18 +324,21 @@ async function main() {
     {
       productId: amanteigadoLeite.id,
       plannedQuantity: 100,
+      bateladas: 1,
       shift: 'MORNING' as const,
       status: 'PENDING' as const,
     },
     {
       productId: cookieIntegral.id, 
       plannedQuantity: 75,
+      bateladas: 1,
       shift: 'AFTERNOON' as const,
       status: 'PENDING' as const,
     },
     {
       productId: flocosMilho.id,
       plannedQuantity: 200,
+      bateladas: 1,
       shift: 'NIGHT' as const, 
       status: 'PENDING' as const,
     },
@@ -324,6 +349,7 @@ async function main() {
       data: {
         productId: plan.productId,
         plannedQuantity: plan.plannedQuantity,
+        bateladas: plan.bateladas,
         shift: plan.shift,
         plannedDate: today,
         status: plan.status,

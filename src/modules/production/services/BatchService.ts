@@ -366,20 +366,21 @@ export class BatchService {
         throw createError(`Invalid shift: ${data.shift}`, 400, 'invalid_shift');
       }
 
+      // Calculate estimated KG from batch count and product type
+      const productType = product.type as ProductType;
+      const estimatedKg = calculateKgFromBatches(productType, data.bateladas);
+
       // Create production plan
       const productionPlan = await prisma.productionPlan.create({
         data: {
           productId: product.id,
-          plannedQuantity: data.bateladas * 25, // Estimate 25kg per batch
+          plannedQuantity: estimatedKg,
+          bateladas: data.bateladas, // Store the number of batches from frontend
           shift: backendShift,
           plannedDate,
           status: 'COMPLETED', // Mark as completed since it's already done
         },
       });
-
-      // Calculate estimated KG from batch count and product type
-      const productType = product.type as ProductType;
-      const estimatedKg = calculateKgFromBatches(productType, data.bateladas);
 
       // Create the batch with completed status and duration
       const now = new Date();

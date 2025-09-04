@@ -62,18 +62,18 @@ export class ReportService {
           pp.shift,
           pp.product_id,
           p.name as product_name,
-          COUNT(b.id) as batches_count,
+          pp.bateladas as batches_count,
+          pp.planned_quantity as estimated_kg,
           COALESCE(SUM(
             CASE WHEN b.start_time IS NOT NULL AND b.end_time IS NOT NULL
             THEN EXTRACT(EPOCH FROM (b.end_time - b.start_time - INTERVAL '1 minute' * b.pause_duration_minutes)) / 60
             ELSE 0 END
-          ), 0) as total_production_minutes,
-          COALESCE(SUM(b.estimated_kg), 0) as estimated_kg
+          ), 0) as total_production_minutes
         FROM production_plans pp
         JOIN products p ON p.id = pp.product_id
         LEFT JOIN batches b ON b.production_plan_id = pp.id
         ${whereClause}
-        GROUP BY pp.planned_date::date, pp.shift, pp.product_id, p.name
+        GROUP BY pp.planned_date::date, pp.shift, pp.product_id, p.name, pp.bateladas, pp.planned_quantity
         ORDER BY pp.planned_date DESC, pp.shift, p.name
       `,
         ...params

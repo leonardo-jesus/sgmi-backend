@@ -52,6 +52,7 @@ model ProductionPlan {
   id              String                 @id @default(uuid())
   productId       String                 @map("product_id")
   plannedQuantity Decimal                @map("planned_quantity") @db.Decimal(14, 3)
+  bateladas       Int                    @default(1) // Number of batches from frontend
   shift           Shift
   plannedDate     DateTime               @map("planned_date") @db.Date
   status          ProductionPlanStatus   @default(PENDING)

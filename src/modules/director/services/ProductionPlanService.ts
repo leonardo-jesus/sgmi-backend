@@ -12,6 +12,7 @@ export class ProductionPlanService {
   async createProductionPlan(data: {
     product_id: UUID;
     planned_quantity: number;
+    bateladas?: number;
     shift: Shift;
     planned_date: Date;
   }): Promise<UUID> {
@@ -47,6 +48,7 @@ export class ProductionPlanService {
         data: {
           productId: data.product_id,
           plannedQuantity: data.planned_quantity,
+          bateladas: data.bateladas || 1, // Default to 1 if not specified
           shift: data.shift,
           plannedDate: data.planned_date,
         },
