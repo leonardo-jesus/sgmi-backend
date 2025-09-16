@@ -1,6 +1,7 @@
 import cors from 'cors';
 import express from 'express';
 import helmet from 'helmet';
+import chatRouter from './modules/chat/chat.router.js';
 import { config } from './config/environment.js';
 import { initDatabase } from './shared/database/prisma.js';
 import { errorHandler } from './shared/middleware/errorHandler.js';
@@ -25,19 +26,42 @@ export const createApp = async () => {
     })
   );
 
-  // CORS configuration
-  app.use(
-    cors({
-      origin: config.CORS_ORIGIN,
-      credentials: true,
-      methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-    })
-  );
+// CORS configuration — aceita string OU string[] no config.CORS_ORIGIN
+const rawOrigins = config.CORS_ORIGIN as string | string[] | undefined;
+
+// Normaliza para array de strings:
+const allowlist: string[] = Array.isArray(rawOrigins)
+  ? rawOrigins
+  : (rawOrigins || '*')
+      .split(',')
+      .map((s: string) => s.trim())
+      .filter(Boolean);
+
+app.use(
+  cors({
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'x-tenant'],
+    origin(
+      origin: string | undefined,
+      callback: (err: Error | null, allow?: boolean) => void
+    ) {
+      // permite ferramentas internas/SSR (sem header Origin)
+      if (!origin) return callback(null, true);
+      if (allowlist.includes('*') || allowlist.includes(origin)) return callback(null, true);
+      return callback(new Error('Not allowed by CORS'));
+    },
+  })
+);
+
+
 
   // Body parsing
   app.use(express.json({ limit: '1mb' }));
   app.use(express.urlencoded({ extended: true, limit: '1mb' }));
+
+  // ✅ Chatbot API (SGMI)
+  app.use('/api', chatRouter);
 
   // Health check
   app.get('/health', (req, res) => {

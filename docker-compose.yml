@@ -1,6 +1,6 @@
 services:
   api:
-    build: 
+    build:
       context: .
       dockerfile: Dockerfile
     ports:
@@ -9,7 +9,7 @@ services:
       - .env
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/sgmi?schema=public
+      - DATABASE_URL=${DATABASE_URL}   # lê do .env
     depends_on:
       db:
         condition: service_healthy
