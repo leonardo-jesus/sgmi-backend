@@ -1,8 +1,8 @@
 import js from '@eslint/js';
 import typescript from '@typescript-eslint/eslint-plugin';
 import typescriptParser from '@typescript-eslint/parser';
-import prettier from 'eslint-plugin-prettier';
 import prettierConfig from 'eslint-config-prettier';
+import prettier from 'eslint-plugin-prettier';
 
 export default [
   js.configs.recommended,
@@ -26,6 +26,10 @@ export default [
         require: 'readonly',
         exports: 'readonly',
       },
+      env: {
+        "browser": true,
+        "node": true
+      },
     },
     plugins: {
       '@typescript-eslint': typescript,
@@ -43,7 +47,7 @@ export default [
       '@typescript-eslint/no-non-null-assertion': 'warn',
       
       // General code quality rules
-      'no-console': 'warn',
+      'no-console': 'off',
       'no-debugger': 'error',
       'prefer-const': 'error',
       'no-var': 'error',
