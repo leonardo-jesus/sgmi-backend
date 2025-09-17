@@ -48,10 +48,10 @@ export class BatchController {
 
   performAction = asyncHandler(
     async (req: AuthenticatedRequest, res: Response) => {
-      const { batchId } = req.params;
+      const { id } = req.params;
       const { action } = req.body;
 
-      await this.batchService.performBatchAction(batchId, {
+      await this.batchService.performBatchAction(id, {
         action,
       });
 
@@ -64,9 +64,9 @@ export class BatchController {
 
   getBatchStatus = asyncHandler(
     async (req: AuthenticatedRequest, res: Response) => {
-      const { batchId } = req.params;
+      const { id } = req.params;
 
-      const batchStatus = await this.batchService.getBatchStatus(batchId);
+      const batchStatus = await this.batchService.getBatchStatus(id);
 
       // Calculate additional metrics
       const metrics = this.calculateBatchMetrics(batchStatus);
@@ -100,6 +100,32 @@ export class BatchController {
         success: true,
         data: result,
         message: 'Batch created successfully',
+      });
+    }
+  );
+
+  // FIND ACTIVE SESSION ENDPOINT
+  findActiveSession = asyncHandler(
+    async (req: AuthenticatedRequest, res: Response) => {
+      const { product, shift, date } = req.query;
+
+      if (!product || !shift || !date) {
+        return res.status(400).json({
+          success: false,
+          message: 'Product, shift, and date are required',
+        });
+      }
+
+      const activeSession = await this.batchService.findActiveSession({
+        product: product as string,
+        shift: shift as string,
+        date: date as string,
+      });
+
+      res.json({
+        success: true,
+        data: activeSession,
+        message: activeSession ? 'Active session found' : 'No active session found',
       });
     }
   );

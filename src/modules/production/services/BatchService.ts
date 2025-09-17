@@ -1,8 +1,7 @@
 import { prisma } from '../../../shared/database/prisma.js';
 import { createError } from '../../../shared/middleware/errorHandler.js';
 import type { Batch, BatchStatus, UUID } from '../../../shared/types/common.js';
-// COMMENTED OUT FOR WEBSOCKET REFACTOR - DO NOT DELETE
-// import { wsManager } from '../../../shared/websocket/manager.js';
+import { wsManager } from '../../../shared/websocket/manager.js';
 import {
   calculateKgFromBatches,
   type ProductType,
@@ -66,18 +65,17 @@ export class BatchService {
         },
       });
 
-      // COMMENTED OUT FOR WEBSOCKET REFACTOR - DO NOT DELETE
       // Broadcast batch creation
-      // wsManager.broadcastToBatchOperators({
-      //   type: 'batch_created',
-      //   data: {
-      //     batchId: batch.id,
-      //     production_plan_id: data.production_plan_id,
-      //     batch_number: data.batch_number,
-      //     product_name: plan.product?.name,
-      //     estimated_kg: estimatedKg,
-      //   },
-      // });
+      wsManager.broadcastToBatchOperators({
+        type: 'batch_created',
+        data: {
+          batchId: batch.id,
+          production_plan_id: data.production_plan_id,
+          batch_number: data.batch_number,
+          product_name: plan.product?.name,
+          estimated_kg: estimatedKg,
+        },
+      });
 
       return batch.id;
     } catch (_error) {
@@ -230,21 +228,20 @@ export class BatchService {
       // Get updated batch with production plan info for broadcast
       const updatedBatch = await this.getBatchWithPlanInfo(batchId);
 
-      // COMMENTED OUT FOR WEBSOCKET REFACTOR - DO NOT DELETE
       // Broadcast status change
-      // wsManager.broadcast({
-      //   type: 'batch_status_updated',
-      //   data: {
-      //     batchId,
-      //     batch_number: updatedBatch.batch_number,
-      //     production_plan_id: updatedBatch.production_plan_id,
-      //     product_name: updatedBatch.product_name,
-      //     previous_status: currentStatus,
-      //     new_status: newStatus,
-      //     action: action.action,
-      //     timestamp: now,
-      //   },
-      // });
+      wsManager.broadcastToBatchOperators({
+        type: 'batch_status_updated',
+        data: {
+          batchId,
+          batch_number: updatedBatch.batch_number,
+          production_plan_id: updatedBatch.production_plan_id,
+          product_name: updatedBatch.product_name,
+          previous_status: currentStatus,
+          new_status: newStatus,
+          action: action.action,
+          timestamp: now,
+        },
+      });
 
       // If batch is completed, check if all batches in plan are done
       if (newStatus === 'COMPLETED') {
@@ -292,6 +289,7 @@ export class BatchService {
         batch_number: batch.batchNumber,
       };
     } catch (_error) {
+      console.error('Error in getBatchStatus:', _error);
       if (_error instanceof Error && 'statusCode' in _error) {
         throw _error;
       }
@@ -325,13 +323,102 @@ export class BatchService {
     };
   }
 
+  // FIND ACTIVE SESSION METHOD
+  async findActiveSession(params: {
+    product: string;
+    shift: string;
+    date: string;
+  }): Promise<{
+    batchId: UUID;
+    productionPlanId: UUID;
+    batchStatus: BatchStatus;
+    batchNumber: number;
+    elapsedSeconds: number;
+    startTime?: Date;
+  } | null> {
+    try {
+      // Map frontend shift format to backend format (supports both numeric and Portuguese names)
+      const shiftMapping: Record<string, 'MORNING' | 'AFTERNOON' | 'NIGHT'> = {
+        MANHÃ: 'MORNING',
+        TARDE: 'AFTERNOON',
+        NOITE: 'NIGHT',
+        '1': 'MORNING',
+        '2': 'AFTERNOON',
+        '3': 'NIGHT',
+      };
+      const backendShift = shiftMapping[params.shift];
+
+      if (!backendShift) {
+        return null;
+      }
+
+      // Convert date from DD-MM-YYYY to Date object
+      const [day, month, year] = params.date.split('-');
+      const searchDate = new Date(`${year}-${month}-${day}T00:00:00.000Z`);
+
+      // Find production plans for this product/shift/date
+      const productionPlans = await prisma.productionPlan.findMany({
+        where: {
+          product: {
+            name: params.product
+          },
+          shift: backendShift,
+          plannedDate: {
+            gte: searchDate,
+            lt: new Date(searchDate.getTime() + 24 * 60 * 60 * 1000) // Next day
+          }
+        },
+        include: {
+          batches: {
+            where: {
+              status: {
+                in: ['IN_PROGRESS', 'PAUSED']
+              }
+            },
+            orderBy: {
+              batchNumber: 'desc'
+            }
+          }
+        }
+      });
+
+      // Find the first plan with an active batch
+      for (const plan of productionPlans) {
+        if (plan.batches.length > 0) {
+          const activeBatch = plan.batches[0];
+
+          // Calculate elapsed seconds if batch is started
+          let elapsedSeconds = 0;
+          if (activeBatch.startTime) {
+            const now = new Date();
+            elapsedSeconds = Math.floor((now.getTime() - activeBatch.startTime.getTime()) / 1000);
+          }
+
+          return {
+            batchId: activeBatch.id,
+            productionPlanId: plan.id,
+            batchStatus: activeBatch.status,
+            batchNumber: activeBatch.batchNumber,
+            elapsedSeconds,
+            startTime: activeBatch.startTime || undefined
+          };
+        }
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Error finding active session:', error);
+      return null;
+    }
+  }
+
   // NEW SIMPLIFIED BATCH CREATION METHOD
   async createSimpleBatch(data: {
     product: string;
     shift: string; // "MANHÃ" | "TARDE" | "NOITE"
     date: string; // DD-MM-YYYY format
     bateladas: number;
-    duration: number; // duration in minutes
+    duration: number; // duration in seconds
   }): Promise<{
     batchId: UUID;
     productionPlanId: UUID;
@@ -384,7 +471,7 @@ export class BatchService {
 
       // Create the batch with completed status and duration
       const now = new Date();
-      const startTime = new Date(now.getTime() - data.duration * 60 * 1000); // Calculate start time based on duration
+      const startTime = new Date(now.getTime() - data.duration * 1000); // Calculate start time based on duration in seconds
 
       const batch = await prisma.batch.create({
         data: {
@@ -438,17 +525,16 @@ export class BatchService {
         });
 
         if (planInfo) {
-          // COMMENTED OUT FOR WEBSOCKET REFACTOR - DO NOT DELETE
-          // wsManager.broadcastToDirectors({
-          //   type: 'production_plan_completed',
-          //   data: {
-          //     production_plan_id,
-          //     product_name: planInfo.product.name,
-          //     planned_date: planInfo.plannedDate,
-          //     shift: planInfo.shift,
-          //     total_batches: batches.length,
-          //   },
-          // });
+          wsManager.broadcastToDirectors({
+            type: 'production_plan_completed',
+            data: {
+              production_plan_id,
+              product_name: planInfo.product.name,
+              planned_date: planInfo.plannedDate,
+              shift: planInfo.shift,
+              total_batches: batches.length,
+            },
+          });
         }
       }
     } catch (_error) {

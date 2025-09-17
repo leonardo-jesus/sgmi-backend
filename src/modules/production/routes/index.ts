@@ -53,8 +53,8 @@ router.post(
 );
 
 router.get(
-  '/plans/:id/batches',
-  validateParams(UuidParamSchema.extend({ id: UuidParamSchema.shape.id })),
+  '/plans/:planId/batches',
+  validateParams(UuidParamSchema.extend({ planId: UuidParamSchema.shape.id })),
   batchController.getBatches
 );
 
@@ -77,6 +77,13 @@ router.post(
   '/batches/simple',
   authorize(['OPERATOR', 'MANAGER', 'DIRECTOR']),
   batchController.createSimpleBatch
+);
+
+// FIND ACTIVE SESSION ROUTE
+router.get(
+  '/sessions/active',
+  authorize(['OPERATOR', 'MANAGER', 'DIRECTOR']),
+  batchController.findActiveSession
 );
 
 export { router as productionRouter };

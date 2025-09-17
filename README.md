@@ -37,7 +37,7 @@ Escolha uma das duas opções abaixo para executar o backend:
    ```
    Servidor iniciará em: http://localhost:4000
    - Health check: GET /health
-   - WebSocket: ws://localhost:4000/ws (removido para essa entrega)
+   - WebSocket: ws://localhost:4000/ws
    - PostgreSQL: localhost:5432 (acessível do host)
 
 **Comandos úteis Docker:**

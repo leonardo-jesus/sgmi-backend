@@ -19,6 +19,7 @@ export class WebSocketManager {
   private wss: WebSocketServer | null = null;
   private clients: Set<WebSocketClient> = new Set();
   private heartbeatInterval: NodeJS.Timeout | null = null;
+  private timerInterval: NodeJS.Timeout | null = null;
 
   public attachToServer(server: Server, path: string = '/ws'): void {
     this.wss = new WebSocketServer({
@@ -29,6 +30,7 @@ export class WebSocketManager {
 
     this.wss.on('connection', this.handleConnection.bind(this));
     this.startHeartbeat();
+    this.startTimerBroadcast();
 
     console.log(`✅ WebSocket server attached to ${path}`);
   }
@@ -106,6 +108,9 @@ export class WebSocketManager {
         case 'subscribe_batch_updates':
           // Client wants to receive batch updates
           break;
+        case 'batch_action':
+          this.handleBatchAction(ws, message.data);
+          break;
         default:
           console.log('Received unknown message type:', message.type);
       }
@@ -126,6 +131,49 @@ export class WebSocketManager {
         ws.ping();
       });
     }, 30000); // 30 seconds
+  }
+
+  private startTimerBroadcast(): void {
+    this.timerInterval = setInterval(async () => {
+      try {
+        // Import BatchService dynamically to avoid circular dependency
+        const { BatchService } = await import('../../modules/production/services/BatchService.js');
+        const batchService = new BatchService();
+
+        // Get active batches (IN_PROGRESS status)
+        const { prisma } = await import('../../shared/database/prisma.js');
+        const activeBatches = await prisma.batch.findMany({
+          where: { status: 'IN_PROGRESS' },
+          include: {
+            productionPlan: {
+              include: { product: true }
+            }
+          }
+        });
+
+        // Broadcast timer updates for each active batch
+        for (const batch of activeBatches) {
+          if (batch.startTime) {
+            const now = new Date();
+            const elapsedSeconds = Math.floor((now.getTime() - batch.startTime.getTime()) / 1000);
+
+            this.broadcastToBatchOperators({
+              type: 'batch_timer_update',
+              data: {
+                batchId: batch.id,
+                batchNumber: batch.batchNumber,
+                productionPlanId: batch.productionPlanId,
+                productName: batch.productionPlan.product.name,
+                elapsedSeconds,
+                status: batch.status
+              }
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Error in timer broadcast:', error);
+      }
+    }, 1000); // 1 second interval
   }
 
   public sendToClient(ws: WebSocketClient, message: WebSocketMessage): void {
@@ -174,9 +222,46 @@ export class WebSocketManager {
     return this.clients.size;
   }
 
+  private async handleBatchAction(ws: WebSocketClient, data: any): Promise<void> {
+    try {
+      const { batchId, action } = data;
+
+      if (!batchId || !action) {
+        this.sendToClient(ws, {
+          type: 'error',
+          data: { message: 'Invalid batch action data' },
+        });
+        return;
+      }
+
+      // Import BatchService dynamically to avoid circular dependency
+      const { BatchService } = await import('../../modules/production/services/BatchService.js');
+      const batchService = new BatchService();
+
+      // Perform the batch action
+      await batchService.performBatchAction(batchId, action);
+
+      // Send success response
+      this.sendToClient(ws, {
+        type: 'batch_action_success',
+        data: { batchId, action: action.action },
+      });
+    } catch (error: any) {
+      console.error('Error handling batch action:', error);
+      this.sendToClient(ws, {
+        type: 'batch_action_error',
+        data: { message: error.message || 'Failed to perform batch action' },
+      });
+    }
+  }
+
   public close(): void {
     if (this.heartbeatInterval) {
       clearInterval(this.heartbeatInterval);
+    }
+
+    if (this.timerInterval) {
+      clearInterval(this.timerInterval);
     }
 
     this.clients.forEach((client) => {
