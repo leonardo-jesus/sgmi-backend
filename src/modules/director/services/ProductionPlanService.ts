@@ -3,7 +3,6 @@ import { createError } from '../../../shared/middleware/errorHandler.js';
 import type {
   ProductionPlan,
   ProductionPlanStatus,
-  Shift,
   UUID,
 } from '../../../shared/types/common.js';
 import { wsManager } from '../../../shared/websocket/manager.js';

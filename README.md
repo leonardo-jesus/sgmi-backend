@@ -173,6 +173,8 @@ Para rodar o sistema SGMI completo, escolha uma das opções para o backend:
    ```bash
    # No diretório sgmi-backend/
    cp .env.example .env
+   # Atualize o .env com a sua OPENAI_API_KEY e coloque CHAT_MOCK_WHEN_NO_KEY como false
+
    docker-compose up --build -d
    docker-compose exec api npm run db:migrate
    docker-compose exec api npm run db:seed
