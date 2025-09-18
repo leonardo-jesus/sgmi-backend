@@ -2,16 +2,12 @@ import { Router } from 'express';
 import { authenticate, authorize } from '../../../shared/middleware/auth.js';
 import {
   validateBody,
-  validateParams,
   validateQuery,
 } from '../../../shared/middleware/validation.js';
 import {
   CreateProductionPlanSchema,
-  DateRangeSchema,
   ProductionPlanQuerySchema,
   ProductionReportQuerySchema,
-  UpdateProductionPlanStatusSchema,
-  UuidParamSchema,
 } from '../../../shared/validation/schemas.js';
 import { ProductionPlanController } from '../controllers/ProductionPlanController.js';
 import { ReportController } from '../controllers/ReportController.js';
@@ -37,23 +33,9 @@ router.get(
   planController.getPlans
 );
 
-router.patch(
-  '/production-plans/:id/status',
-  validateParams(UuidParamSchema),
-  validateBody(UpdateProductionPlanStatusSchema),
-  planController.updatePlanStatus
-);
-
 // Get planned production totals (what should be produced)
 router.get(
   '/production-totals',
-  validateQuery(ProductionReportQuerySchema),
-  planController.getTotalProduction
-);
-
-// Alternative semantic route for planned totals
-router.get(
-  '/planned-totals',
   validateQuery(ProductionReportQuerySchema),
   planController.getTotalProduction
 );
@@ -75,12 +57,6 @@ router.get(
   '/reports/daily-trend',
   validateQuery(ProductionReportQuerySchema),
   reportController.getDailyTrend
-);
-
-router.get(
-  '/reports/shift-performance',
-  validateQuery(DateRangeSchema),
-  reportController.getShiftPerformance
 );
 
 export { router as directorRouter };

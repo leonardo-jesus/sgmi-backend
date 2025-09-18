@@ -34,27 +34,37 @@ try {
   FAQ_TEXT = fs.readFileSync(FAQ_PATH, 'utf8');
   console.log(`[chat] FAQ carregado (${FAQ_PATH}, ${FAQ_TEXT.length} chars)`);
 } catch {
-  console.warn(`[chat] FAQ não encontrado em ${FAQ_PATH} (ok, contexto leve desativado).`);
+  console.warn(
+    `[chat] FAQ não encontrado em ${FAQ_PATH} (ok, contexto leve desativado).`
+  );
 }
 
 // Seleciona até ~1500 chars mais relevantes do FAQ com base na última pergunta
 function pickContext(query: string, text: string, maxChars = 1500): string {
   if (!text) return '';
-  const parts = text.split(/\n{2,}/g).map(t => t.trim()).filter(Boolean);
+  const parts = text
+    .split(/\n{2,}/g)
+    .map((t) => t.trim())
+    .filter(Boolean);
   if (!query) return parts.slice(0, 6).join('\n\n').slice(0, maxChars);
 
-  const qTokens = query.toLowerCase().split(/\W+/).filter(t => t.length >= 3);
-  const scored = parts.map(p => {
-    const l = p.toLowerCase();
-    let score = 0;
-    for (const t of qTokens) {
-      const hits = l.split(t).length - 1;
-      score += hits * 5;
-    }
-    // leve viés para parágrafos médios
-    score += Math.min(p.length, 400) / 400;
-    return { p, score };
-  }).sort((a, b) => b.score - a.score);
+  const qTokens = query
+    .toLowerCase()
+    .split(/\W+/)
+    .filter((t) => t.length >= 3);
+  const scored = parts
+    .map((p) => {
+      const l = p.toLowerCase();
+      let score = 0;
+      for (const t of qTokens) {
+        const hits = l.split(t).length - 1;
+        score += hits * 5;
+      }
+      // leve viés para parágrafos médios
+      score += Math.min(p.length, 400) / 400;
+      return { p, score };
+    })
+    .sort((a, b) => b.score - a.score);
 
   const out: string[] = [];
   let total = 0;
@@ -68,14 +78,17 @@ function pickContext(query: string, text: string, maxChars = 1500): string {
 }
 
 function buildMessagesForSGMI(messages: ChatMessage[]): ChatMessage[] {
-  const lastUser = [...messages].reverse().find(m => m.role === 'user')?.content ?? '';
+  const lastUser =
+    [...messages].reverse().find((m) => m.role === 'user')?.content ?? '';
   const ctx = pickContext(lastUser, FAQ_TEXT);
 
-  const preamble: ChatMessage[] = [{ role: 'system', content: SYSTEM_PROMPT_SGMI }];
+  const preamble: ChatMessage[] = [
+    { role: 'system', content: SYSTEM_PROMPT_SGMI },
+  ];
   if (ctx) {
     preamble.push({
       role: 'system',
-      content: `Contexto do SGMI (use apenas se pertinente; se não houver resposta no contexto, admita e peça detalhes):\n${ctx}`
+      content: `Contexto do SGMI (use apenas se pertinente; se não houver resposta no contexto, admita e peça detalhes):\n${ctx}`,
     });
   }
   return [...preamble, ...messages];

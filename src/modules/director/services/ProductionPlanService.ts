@@ -12,8 +12,6 @@ export class ProductionPlanService {
   async createProductionPlan(data: {
     product_id: UUID;
     planned_quantity: number;
-    bateladas?: number;
-    shift: Shift;
     planned_date: Date;
   }): Promise<UUID> {
     try {
@@ -26,30 +24,10 @@ export class ProductionPlanService {
         throw createError('Product not found', 404, 'product_not_found');
       }
 
-      // Check for existing plan on same date/shift/product
-      const conflictingPlan = await prisma.productionPlan.findFirst({
-        where: {
-          productId: data.product_id,
-          shift: data.shift,
-          plannedDate: data.planned_date,
-          status: { not: 'COMPLETED' },
-        },
-      });
-
-      if (conflictingPlan) {
-        throw createError(
-          'Production plan already exists for this product, shift, and date',
-          409,
-          'production_plan_conflict'
-        );
-      }
-
       const plan = await prisma.productionPlan.create({
         data: {
           productId: data.product_id,
           plannedQuantity: data.planned_quantity,
-          bateladas: data.bateladas || 1, // Default to 1 if not specified
-          shift: data.shift,
           plannedDate: data.planned_date,
         },
       });

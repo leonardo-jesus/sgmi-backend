@@ -87,6 +87,10 @@ export class ProductionEntryService {
         quantity: entry.quantity,
         shift: entry.shift,
         createdAt: entry.createdAt,
+        duration: entry.duration,
+        bateladas: entry.bateladas,
+        startTime: entry.startTime,
+        endTime: entry.endTime,
         product: {
           id: entry.product.id,
           name: entry.product.name,
@@ -161,6 +165,66 @@ export class ProductionEntryService {
         'Failed to calculate production totals',
         500,
         'totals_calculation_failed'
+      );
+    }
+  }
+
+  async getProductionSessions(
+    filters: {
+      from?: Date;
+      to?: Date;
+    } = {}
+  ): Promise<
+    Array<{
+      id: UUID;
+      date: string;
+      shift: 'Manhã' | 'Tarde' | 'Noite';
+      product: string;
+      batches: number;
+      totalKg: number;
+      duration: number;
+    }>
+  > {
+    try {
+      const where: any = {};
+
+      if (filters.from) {
+        where.createdAt = { ...where.createdAt, gte: filters.from };
+      }
+      if (filters.to) {
+        where.createdAt = { ...where.createdAt, lte: filters.to };
+      }
+
+      const entries = await prisma.productionEntry.findMany({
+        where,
+        include: {
+          product: true,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
+
+      return entries.map((entry) => {
+        return {
+          id: entry.id,
+          date: new Date(entry.createdAt).toLocaleDateString('pt-BR'),
+          shift: (entry.shift === 'MORNING'
+            ? 'Manhã'
+            : entry.shift === 'AFTERNOON'
+              ? 'Tarde'
+              : 'Noite') as 'Manhã' | 'Tarde' | 'Noite',
+          product: entry.product.name,
+          batches: Number(entry.bateladas),
+          totalKg: Number(entry.quantity),
+          duration: Number(entry.duration),
+        };
+      });
+    } catch (_error) {
+      throw createError(
+        'Failed to fetch production sessions',
+        500,
+        'fetch_sessions_failed'
       );
     }
   }

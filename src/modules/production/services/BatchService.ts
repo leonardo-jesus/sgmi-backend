@@ -1,11 +1,11 @@
-import { prisma } from '../../../shared/database/prisma.js';
-import { createError } from '../../../shared/middleware/errorHandler.js';
-import type { Batch, BatchStatus, UUID } from '../../../shared/types/common.js';
-import { wsManager } from '../../../shared/websocket/manager.js';
 import {
   calculateKgFromBatches,
   type ProductType,
 } from '../../../shared/constants/production.js';
+import { prisma } from '../../../shared/database/prisma.js';
+import { createError } from '../../../shared/middleware/errorHandler.js';
+import type { Batch, BatchStatus, UUID } from '../../../shared/types/common.js';
+import { wsManager } from '../../../shared/websocket/manager.js';
 
 export interface BatchAction {
   action: 'start' | 'pause' | 'resume' | 'complete' | 'stop';
@@ -167,6 +167,7 @@ export class BatchService {
           updateData.status = 'IN_PROGRESS';
 
           // Calculate pause duration
+          // eslint-disable-next-line no-case-declarations
           const pauseStart = this.pauseStartTimes.get(batchId);
           if (pauseStart) {
             const pauseDurationMs = now.getTime() - pauseStart.getTime();
@@ -360,26 +361,25 @@ export class BatchService {
       const productionPlans = await prisma.productionPlan.findMany({
         where: {
           product: {
-            name: params.product
+            name: params.product,
           },
-          shift: backendShift,
           plannedDate: {
             gte: searchDate,
-            lt: new Date(searchDate.getTime() + 24 * 60 * 60 * 1000) // Next day
-          }
+            lt: new Date(searchDate.getTime() + 24 * 60 * 60 * 1000), // Next day
+          },
         },
         include: {
           batches: {
             where: {
               status: {
-                in: ['IN_PROGRESS', 'PAUSED']
-              }
+                in: ['IN_PROGRESS', 'PAUSED'],
+              },
             },
             orderBy: {
-              batchNumber: 'desc'
-            }
-          }
-        }
+              batchNumber: 'desc',
+            },
+          },
+        },
       });
 
       // Find the first plan with an active batch
@@ -391,7 +391,9 @@ export class BatchService {
           let elapsedSeconds = 0;
           if (activeBatch.startTime) {
             const now = new Date();
-            elapsedSeconds = Math.floor((now.getTime() - activeBatch.startTime.getTime()) / 1000);
+            elapsedSeconds = Math.floor(
+              (now.getTime() - activeBatch.startTime.getTime()) / 1000
+            );
           }
 
           return {
@@ -400,7 +402,7 @@ export class BatchService {
             batchStatus: activeBatch.status,
             batchNumber: activeBatch.batchNumber,
             elapsedSeconds,
-            startTime: activeBatch.startTime || undefined
+            startTime: activeBatch.startTime || undefined,
           };
         }
       }
@@ -462,8 +464,6 @@ export class BatchService {
         data: {
           productId: product.id,
           plannedQuantity: estimatedKg,
-          bateladas: data.bateladas, // Store the number of batches from frontend
-          shift: backendShift,
           plannedDate,
           status: 'COMPLETED', // Mark as completed since it's already done
         },
@@ -531,7 +531,6 @@ export class BatchService {
               production_plan_id,
               product_name: planInfo.product.name,
               planned_date: planInfo.plannedDate,
-              shift: planInfo.shift,
               total_batches: batches.length,
             },
           });
@@ -539,6 +538,98 @@ export class BatchService {
       }
     } catch (_error) {
       console.error('Error checking plan completion:', _error);
+    }
+  }
+
+  // Create a production entry directly (used by SGMI-PADARIA instead of production plans)
+  async createProductionEntry(data: {
+    product: string;
+    shift: string; // "MANHÃ" | "TARDE" | "NOITE"
+    date: string; // DD-MM-YYYY format
+    bateladas: number;
+    duration: number; // duration in seconds
+    startTime: string;
+    endTime: string;
+  }): Promise<{
+    id: UUID;
+  }> {
+    try {
+      // Find product by name
+      const product = await prisma.product.findFirst({
+        where: { name: data.product },
+      });
+
+      if (!product) {
+        throw createError(
+          `Product "${data.product}" not found`,
+          404,
+          'product_not_found'
+        );
+      }
+
+      // Map shift from Portuguese to backend format
+      const shiftMapping: Record<string, 'MORNING' | 'AFTERNOON' | 'NIGHT'> = {
+        MANHÃ: 'MORNING',
+        TARDE: 'AFTERNOON',
+        NOITE: 'NIGHT',
+      };
+      const backendShift = shiftMapping[data.shift];
+
+      if (!backendShift) {
+        throw createError(`Invalid shift: ${data.shift}`, 400, 'invalid_shift');
+      }
+
+      const estimatedQuantity = calculateKgFromBatches(
+        product.type,
+        data.bateladas
+      );
+
+      // Create production entry
+      const entry = await prisma.productionEntry.create({
+        data: {
+          productId: product.id,
+          quantity: estimatedQuantity,
+          bateladas: data.bateladas,
+          startTime: new Date(data.startTime),
+          endTime: new Date(data.endTime),
+          duration: data.duration,
+          shift: backendShift,
+        },
+      });
+
+      // Broadcast to directors for real-time monitoring
+      wsManager.broadcastToDirectors({
+        type: 'production_entry_created',
+        data: {
+          entryId: entry.id,
+          product_name: product.name,
+          quantity: estimatedQuantity,
+          shift: backendShift,
+          batches: data.bateladas,
+          duration_seconds: data.duration,
+          duration_display: `${Math.floor(data.duration / 60)}:${(data.duration % 60).toString().padStart(2, '0')}`,
+        },
+      });
+
+      console.log('Production entry created:', {
+        id: entry.id,
+        product: data.product,
+        shift: data.shift,
+        batches: data.bateladas,
+        duration: data.duration,
+        estimatedQuantity,
+      });
+
+      return { id: entry.id };
+    } catch (_error) {
+      if (_error instanceof Error && 'statusCode' in _error) {
+        throw _error;
+      }
+      throw createError(
+        'Failed to create production entry',
+        500,
+        'create_production_entry_failed'
+      );
     }
   }
 }

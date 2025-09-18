@@ -137,7 +137,9 @@ export class WebSocketManager {
     this.timerInterval = setInterval(async () => {
       try {
         // Import BatchService dynamically to avoid circular dependency
-        const { BatchService } = await import('../../modules/production/services/BatchService.js');
+        const { BatchService } = await import(
+          '../../modules/production/services/BatchService.js'
+        );
         const batchService = new BatchService();
 
         // Get active batches (IN_PROGRESS status)
@@ -146,16 +148,18 @@ export class WebSocketManager {
           where: { status: 'IN_PROGRESS' },
           include: {
             productionPlan: {
-              include: { product: true }
-            }
-          }
+              include: { product: true },
+            },
+          },
         });
 
         // Broadcast timer updates for each active batch
         for (const batch of activeBatches) {
           if (batch.startTime) {
             const now = new Date();
-            const elapsedSeconds = Math.floor((now.getTime() - batch.startTime.getTime()) / 1000);
+            const elapsedSeconds = Math.floor(
+              (now.getTime() - batch.startTime.getTime()) / 1000
+            );
 
             this.broadcastToBatchOperators({
               type: 'batch_timer_update',
@@ -165,8 +169,8 @@ export class WebSocketManager {
                 productionPlanId: batch.productionPlanId,
                 productName: batch.productionPlan.product.name,
                 elapsedSeconds,
-                status: batch.status
-              }
+                status: batch.status,
+              },
             });
           }
         }
@@ -222,7 +226,10 @@ export class WebSocketManager {
     return this.clients.size;
   }
 
-  private async handleBatchAction(ws: WebSocketClient, data: any): Promise<void> {
+  private async handleBatchAction(
+    ws: WebSocketClient,
+    data: any
+  ): Promise<void> {
     try {
       const { batchId, action } = data;
 
@@ -235,7 +242,9 @@ export class WebSocketManager {
       }
 
       // Import BatchService dynamically to avoid circular dependency
-      const { BatchService } = await import('../../modules/production/services/BatchService.js');
+      const { BatchService } = await import(
+        '../../modules/production/services/BatchService.js'
+      );
       const batchService = new BatchService();
 
       // Perform the batch action

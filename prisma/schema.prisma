@@ -11,13 +11,13 @@ datasource db {
 }
 
 model User {
-  id            String   @id @default(uuid())
-  name          String
-  email         String   @unique
-  passwordHash  String   @map("password_hash")
-  role          UserRole
-  createdAt     DateTime @default(now()) @map("created_at")
-  
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  role         UserRole
+  createdAt    DateTime @default(now()) @map("created_at")
+
   refreshTokens RefreshToken[]
 
   @@map("users")
@@ -28,7 +28,7 @@ model RefreshToken {
   userId    String   @map("user_id")
   token     String   @unique
   createdAt DateTime @default(now()) @map("created_at")
-  
+
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("refresh_tokens")
@@ -41,7 +41,7 @@ model Product {
   type      ProductType @default(AMANTEIGADO)
   active    Boolean     @default(true)
   createdAt DateTime    @default(now()) @map("created_at")
-  
+
   productionPlans   ProductionPlan[]
   productionEntries ProductionEntry[]
 
@@ -49,20 +49,18 @@ model Product {
 }
 
 model ProductionPlan {
-  id              String                 @id @default(uuid())
-  productId       String                 @map("product_id")
-  plannedQuantity Decimal                @map("planned_quantity") @db.Decimal(14, 3)
-  bateladas       Int                    @default(1) // Number of batches from frontend
-  shift           Shift
-  plannedDate     DateTime               @map("planned_date") @db.Date
-  status          ProductionPlanStatus   @default(PENDING)
-  createdAt       DateTime               @default(now()) @map("created_at")
-  updatedAt       DateTime               @updatedAt @map("updated_at")
-  
+  id              String               @id @default(uuid())
+  productId       String               @map("product_id")
+  plannedQuantity Decimal              @map("planned_quantity") @db.Decimal(14, 3)
+  plannedDate     DateTime             @map("planned_date") @db.Date
+  status          ProductionPlanStatus @default(PENDING)
+  createdAt       DateTime             @default(now()) @map("created_at")
+  updatedAt       DateTime             @updatedAt @map("updated_at")
+
   product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
   batches Batch[]
 
-  @@index([plannedDate, shift])
+  @@index([plannedDate])
   @@index([productId])
   @@index([status])
   @@map("production_plans")
@@ -79,7 +77,7 @@ model Batch {
   estimatedKg          Decimal     @map("estimated_kg") @db.Decimal(14, 3)
   createdAt            DateTime    @default(now()) @map("created_at")
   updatedAt            DateTime    @updatedAt @map("updated_at")
-  
+
   productionPlan ProductionPlan @relation(fields: [productionPlanId], references: [id], onDelete: Cascade)
 
   @@unique([productionPlanId, batchNumber])
@@ -89,12 +87,16 @@ model Batch {
 }
 
 model ProductionEntry {
-  id        String   @id @default(uuid())
-  productId String   @map("product_id")
-  quantity  Decimal  @db.Decimal(14, 3)
+  id        String    @id @default(uuid())
+  productId String    @map("product_id")
+  quantity  Decimal   @db.Decimal(14, 3)
+  startTime DateTime? @map("start_time")
+  endTime   DateTime? @map("end_time")
+  duration  Int       @default(0)
+  bateladas Int       @default(1) // Number of batches planned
   shift     Shift
-  createdAt DateTime @default(now()) @map("created_at")
-  
+  createdAt DateTime  @default(now()) @map("created_at")
+
   product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
 
   @@map("production_entries")
@@ -102,9 +104,9 @@ model ProductionEntry {
 
 // Enums
 enum UserRole {
-  OPERATOR  @map("operator")
-  MANAGER   @map("manager")
-  DIRECTOR  @map("director")
+  OPERATOR @map("operator")
+  MANAGER  @map("manager")
+  DIRECTOR @map("director")
 }
 
 enum ProductUnit {

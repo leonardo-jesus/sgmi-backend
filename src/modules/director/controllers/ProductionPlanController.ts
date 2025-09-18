@@ -12,12 +12,11 @@ export class ProductionPlanController {
 
   createPlan = asyncHandler(
     async (req: AuthenticatedRequest, res: Response) => {
-      const { product_id, planned_quantity, shift, planned_date } = req.body;
+      const { product_id, planned_quantity, planned_date } = req.body;
 
       const planId = await this.planService.createProductionPlan({
         product_id,
         planned_quantity,
-        shift,
         planned_date: new Date(planned_date),
       });
 

@@ -51,9 +51,6 @@ export const UpdateProductSchema = z.object({
 export const CreateProductionPlanSchema = z.object({
   product_id: UuidSchema,
   planned_quantity: z.number().positive('Planned quantity must be positive'),
-  shift: z.enum(['MORNING', 'AFTERNOON', 'NIGHT'], {
-    errorMap: () => ({ message: 'Shift must be morning, afternoon, or night' }),
-  }),
   planned_date: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format'),

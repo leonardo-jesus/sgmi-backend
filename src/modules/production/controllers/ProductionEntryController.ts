@@ -71,4 +71,24 @@ export class ProductionEntryController {
       },
     });
   });
+
+  getProductionSessions = asyncHandler(
+    async (req: AuthenticatedRequest, res: Response) => {
+      const { from, to } = req.query as any;
+
+      const filters: any = {};
+      if (from) filters.from = new Date(from);
+      if (to) filters.to = new Date(to);
+
+      const sessions = await this.entryService.getProductionSessions(filters);
+
+      res.json({
+        success: true,
+        data: sessions,
+        meta: {
+          count: sessions.length,
+        },
+      });
+    }
+  );
 }

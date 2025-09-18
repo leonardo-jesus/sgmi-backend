@@ -1,6 +1,7 @@
 import type { ProductionPlan } from '@prisma/client';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import { calculateKgFromBatches, type ProductType } from '../src/shared/constants/production.js';
 
 declare const process: {
   exit: (code: number) => void;
@@ -21,12 +22,15 @@ async function main() {
   // Use a fresh client for cleanup to avoid prepared statement conflicts
   const cleanupClient = new PrismaClient();
   try {
-    await cleanupClient.batch.deleteMany();
-    await cleanupClient.productionPlan.deleteMany();
-    await cleanupClient.productionEntry.deleteMany();
-    await cleanupClient.product.deleteMany();
-    await cleanupClient.refreshToken.deleteMany();
-    await cleanupClient.user.deleteMany();
+    // Use raw SQL to delete all data safely
+    await cleanupClient.$executeRaw`TRUNCATE TABLE IF EXISTS "Batch" CASCADE`;
+    await cleanupClient.$executeRaw`TRUNCATE TABLE IF EXISTS "ProductionPlan" CASCADE`;
+    await cleanupClient.$executeRaw`TRUNCATE TABLE IF EXISTS "ProductionEntry" CASCADE`;
+    await cleanupClient.$executeRaw`TRUNCATE TABLE IF EXISTS "Product" CASCADE`;
+    await cleanupClient.$executeRaw`TRUNCATE TABLE IF EXISTS "RefreshToken" CASCADE`;
+    await cleanupClient.$executeRaw`TRUNCATE TABLE IF EXISTS "User" CASCADE`;
+  } catch (error) {
+    console.log('Some tables may not exist yet, continuing...');
   } finally {
     await cleanupClient.$disconnect();
   }
@@ -171,44 +175,38 @@ async function main() {
   for (let i = 0; i < productionDates.length; i++) {
     const date = productionDates[i];
     
-    // Create morning shift plan with AMANTEIGADO SABOR LEITE
-    const morningPlan = await prisma.productionPlan.create({
+    // Create production plan for AMANTEIGADO SABOR LEITE
+    const leiteplan = await prisma.productionPlan.create({
       data: {
         productId: amanteigadoLeite.id,
         plannedQuantity: 300,
-        bateladas: 3, // 3 batches of ~100kg each
-        shift: 'MORNING',
         plannedDate: new Date(date),
         status: 'COMPLETED',
       },
     });
-    productionPlans.push(morningPlan);
+    productionPlans.push(leiteplan);
 
-    // Create afternoon shift plan with COOKIE COM GOTAS DE CHOCOLATE  
-    const afternoonPlan = await prisma.productionPlan.create({
+    // Create production plan for COOKIE COM GOTAS DE CHOCOLATE
+    const cookiePlan = await prisma.productionPlan.create({
       data: {
         productId: cookieGotas.id,
         plannedQuantity: 200,
-        bateladas: 2, // 2 batches of ~100kg each
-        shift: 'AFTERNOON', 
         plannedDate: new Date(date),
         status: 'COMPLETED',
       },
     });
-    productionPlans.push(afternoonPlan);
+    productionPlans.push(cookiePlan);
 
-    // Create night shift plan with ROSQUINHA DE CHOCOLATE
-    const nightPlan = await prisma.productionPlan.create({
+    // Create production plan for ROSQUINHA DE CHOCOLATE
+    const rosquinhaPlan = await prisma.productionPlan.create({
       data: {
         productId: rosquinhaChocolate.id,
         plannedQuantity: 150,
-        bateladas: 2, // 2 batches of ~75kg each
-        shift: 'NIGHT',
         plannedDate: new Date(date),
         status: 'COMPLETED',
       },
     });
-    productionPlans.push(nightPlan);
+    productionPlans.push(rosquinhaPlan);
   }
 
   console.log(`✅ Created ${productionPlans.length} production plans`);
@@ -251,9 +249,8 @@ async function main() {
     await prisma.$transaction(async (tx) => {
       for (const batchData of chunk) {
         // Find the corresponding production plan
-        const plan = productionPlans.find(p => 
+        const plan = productionPlans.find(p =>
           p.productId === batchData.product &&
-          p.shift.toLowerCase() === batchData.shift.toLowerCase() &&
           p.plannedDate.toISOString().startsWith(batchData.date)
         );
 
@@ -291,23 +288,34 @@ async function main() {
   // Create some production entries (legacy system entries)
   console.log('📝 Creating production entries...');
 
+  // Calculate production entries using realistic batch counts and calculateKgFromBatches
   const productionEntries = [
-    { productId: amanteigadoLeite.id, quantity: 45.5, shift: 'MORNING' },
-    { productId: amanteigadoMaca.id, quantity: 38.2, shift: 'AFTERNOON' },
-    { productId: amanteigadoBanana.id, quantity: 52.1, shift: 'NIGHT' },
-    { productId: amanteigadoNata.id, quantity: 41.8, shift: 'MORNING' },
-    { productId: amanteigadoCoco.id, quantity: 78.5, shift: 'AFTERNOON' },
-    { productId: rosquinhaChocolate.id, quantity: 65.3, shift: 'NIGHT' },
-    { productId: cookieGotas.id, quantity: 58.7, shift: 'MORNING' },
-    { productId: cookieIntegral.id, quantity: 62.4, shift: 'AFTERNOON' },
-    { productId: flocosMilho.id, quantity: 48.9, shift: 'NIGHT' },
+    { productId: amanteigadoLeite.id, productType: 'AMANTEIGADO' as ProductType, batches: 2, shift: 'MORNING' }, // 2 * 110 = 220kg
+    { productId: amanteigadoMaca.id, productType: 'AMANTEIGADO' as ProductType, batches: 3, shift: 'AFTERNOON' }, // 3 * 110 = 330kg
+    { productId: amanteigadoBanana.id, productType: 'AMANTEIGADO' as ProductType, batches: 1, shift: 'NIGHT' }, // 1 * 110 = 110kg
+    { productId: amanteigadoNata.id, productType: 'AMANTEIGADO' as ProductType, batches: 2, shift: 'MORNING' }, // 2 * 110 = 220kg
+    { productId: amanteigadoCoco.id, productType: 'AMANTEIGADO' as ProductType, batches: 4, shift: 'AFTERNOON' }, // 4 * 110 = 440kg
+    { productId: rosquinhaChocolate.id, productType: 'DOCE' as ProductType, batches: 3, shift: 'NIGHT' }, // 3 * 120 = 360kg
+    { productId: cookieGotas.id, productType: 'DOCE' as ProductType, batches: 2, shift: 'MORNING' }, // 2 * 120 = 240kg
+    { productId: cookieIntegral.id, productType: 'DOCE' as ProductType, batches: 4, shift: 'AFTERNOON' }, // 4 * 120 = 480kg
+    { productId: flocosMilho.id, productType: 'FLOCO' as ProductType, batches: 2, shift: 'NIGHT' }, // 2 * 172 = 344kg
   ];
 
   for (const entry of productionEntries) {
+    const calculatedQuantity = calculateKgFromBatches(entry.productType, entry.batches);
+
+    const startTime = new Date();
+    const endTime = new Date(startTime);
+    endTime.setMinutes(endTime.getMinutes() + 25); // 25 minute batches
+
     await prisma.productionEntry.create({
       data: {
         productId: entry.productId,
-        quantity: entry.quantity,
+        quantity: calculatedQuantity,
+        bateladas: entry.batches,
+        startTime,
+        endTime,
+        duration: 300,
         shift: entry.shift as any,
       },
     });
@@ -324,22 +332,16 @@ async function main() {
     {
       productId: amanteigadoLeite.id,
       plannedQuantity: 100,
-      bateladas: 1,
-      shift: 'MORNING' as const,
       status: 'PENDING' as const,
     },
     {
-      productId: cookieIntegral.id, 
+      productId: cookieIntegral.id,
       plannedQuantity: 75,
-      bateladas: 1,
-      shift: 'AFTERNOON' as const,
       status: 'PENDING' as const,
     },
     {
       productId: flocosMilho.id,
       plannedQuantity: 200,
-      bateladas: 1,
-      shift: 'NIGHT' as const, 
       status: 'PENDING' as const,
     },
   ];
@@ -349,8 +351,6 @@ async function main() {
       data: {
         productId: plan.productId,
         plannedQuantity: plan.plannedQuantity,
-        bateladas: plan.bateladas,
-        shift: plan.shift,
         plannedDate: today,
         status: plan.status,
       },

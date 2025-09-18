@@ -81,25 +81,28 @@ export class BatchController {
     }
   );
 
-  // NEW SIMPLIFIED BATCH CREATION ENDPOINT
+  // NEW SIMPLIFIED BATCH CREATION ENDPOINT - NOW CREATES PRODUCTION ENTRIES
   createSimpleBatch = asyncHandler(
     async (req: AuthenticatedRequest, res: Response) => {
-      const { product, shift, date, bateladas, duration } = req.body;
+      const { product, shift, date, bateladas, duration, startTime, endTime } =
+        req.body;
 
-      // This will create a production plan and batch in one go
-      // with the completed status and duration already set
-      const result = await this.batchService.createSimpleBatch({
+      // This will create a production entry directly without creating production plans
+      // Production entries are simpler and used for reporting in SGMI second tab
+      const result = await this.batchService.createProductionEntry({
         product,
         shift,
         date,
         bateladas,
         duration,
+        startTime,
+        endTime,
       });
 
       res.status(201).json({
         success: true,
         data: result,
-        message: 'Batch created successfully',
+        message: 'Production entry created successfully',
       });
     }
   );
@@ -125,7 +128,9 @@ export class BatchController {
       res.json({
         success: true,
         data: activeSession,
-        message: activeSession ? 'Active session found' : 'No active session found',
+        message: activeSession
+          ? 'Active session found'
+          : 'No active session found',
       });
     }
   );
