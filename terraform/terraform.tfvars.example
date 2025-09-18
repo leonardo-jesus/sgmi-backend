@@ -4,8 +4,8 @@
 # AWS region to deploy resources
 aws_region = "us-east-1"
 
-# EC2 instance type (t3.micro recommended for this workload)
-instance_type = "t3.micro"
+# EC2 instance type (t3.small recommended for this workload)
+instance_type = "t3.small"
 
 # Your SSH public key content (paste the content of your .pub file here)
 # Generate with: ssh-keygen -t rsa -b 2048 -f ~/.ssh/sgmi-key

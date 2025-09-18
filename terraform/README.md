@@ -10,7 +10,7 @@ This Terraform configuration deploys a complete AWS infrastructure for the SGMI 
 
 ### AWS Resources Created
 - **VPC** with public subnet and Internet Gateway
-- **EC2 Instance** (t3.micro) with Elastic IP
+- **EC2 Instance** (t3.small) with Elastic IP
 - **Security Groups** with ports for SSH (22), Backend API (4000), SGMI (3000), and SGMI-PADARIA (3001)
 - **CloudWatch Log Groups** for centralized logging
 - **IAM Role and Policies** for CloudWatch access
@@ -47,7 +47,7 @@ nano terraform.tfvars
 Required variables:
 - `public_key`: Content of your SSH public key file
 - `aws_region`: AWS region for deployment
-- `instance_type`: EC2 instance type (default: t3.micro)
+- `instance_type`: EC2 instance type (default: t3.small)
 
 ### 2. Initialize and Deploy
 ```bash
@@ -168,7 +168,7 @@ sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a query-c
 
 ## Cost Optimization
 
-- **Instance Type**: t3.micro (~$30/month) is sufficient for development. Consider t3.large for production.
+- **Instance Type**: t3.small (~$30/month) is sufficient for development. Consider t3.large for production.
 - **Storage**: Default 8GB should be adequate. Monitor usage with `df -h`.
 - **Data Transfer**: Minimize outbound data transfer costs by using CloudFront for static assets.
 
