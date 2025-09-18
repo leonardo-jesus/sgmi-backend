@@ -1,0 +1,15 @@
+# Example Terraform variables file
+# Copy this file to terraform.tfvars and update with your values
+
+# AWS region to deploy resources
+aws_region = "us-east-1"
+
+# EC2 instance type (t3.micro recommended for this workload)
+instance_type = "t3.micro"
+
+# Your SSH public key content (paste the content of your .pub file here)
+# Generate with: ssh-keygen -t rsa -b 2048 -f ~/.ssh/sgmi-key
+public_key = "ssh-rsa AAAAB3NzaC1yc2EAAAA... your-public-key-here"
+
+# Environment name
+environment = "prod"

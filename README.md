@@ -216,7 +216,7 @@ Para rodar o sistema SGMI completo, escolha uma das opções para o backend:
 
 ### Portas Padrão
 - Backend API: http://localhost:4000
-- Frontend Principal: http://localhost:5173
+- Frontend Principal: http://localhost:3000
 - Frontend Padaria: http://localhost:3001 (se executado)
 - Prisma Studio: http://localhost:5555 (npm run db:studio)
 
